@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,14 @@
  */
 package net.kaczmarzyk.spring.data.jpa;
 
-import javax.persistence.EntityManager;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Calendar;
 import java.util.UUID;
+
+import jakarta.persistence.EntityManager;
 
 /**
  * Helper class for building test data
@@ -65,17 +67,26 @@ public class CustomerBuilder {
 		customer.setLastOrderTime(lastOrderTime);
 		return this;
 	}
-	
+
+	public CustomerBuilder lastSeen(LocalDateTime timestamp) {
+		customer.setLastSeen(timestamp);
+		return this;
+	}
+
 	public CustomerBuilder registrationDate(int year, int month, int day) {
-		Calendar cal = Calendar.getInstance();
-		cal.set(Calendar.YEAR, year);
-		cal.set(Calendar.MONTH, month - 1);
-		cal.set(Calendar.DAY_OF_MONTH, day);
-		cal.set(Calendar.HOUR_OF_DAY, 0);
-		cal.set(Calendar.MINUTE, 0);
-		cal.set(Calendar.SECOND, 0);
-		cal.set(Calendar.MILLISECOND, 0);
-		customer.setRegistrationDate(cal.getTime());
+		return registrationDate(year, month, day, 0, 0, 0 ,0);
+	}
+
+	public CustomerBuilder registrationDate(int year, int month, int day, int hour, int minute, int second, int millisecond) {
+		LocalDateTime dateTime = LocalDateTime.now()
+			.withYear(year)
+			.withMonth(month)
+			.withDayOfMonth(day)
+			.withHour(hour)
+			.withMinute(minute)
+			.withSecond(second)
+			.withNano(millisecond);
+		customer.setRegistrationDate(dateTime);
 		return this;
 	}
 	
@@ -121,6 +132,20 @@ public class CustomerBuilder {
 	public CustomerBuilder badges(String... badgeTypes) {
 		for (String badgeType : badgeTypes) {
 			new Badge(customer, badgeType);
+		}
+		return this;
+	}
+
+	public CustomerBuilder phoneNumbers(String... phoneNumbers) {
+		for(String phoneNumber: phoneNumbers) {
+			customer.addPhoneNumber(phoneNumber);
+		}
+		return this;
+	}
+
+	public CustomerBuilder luckyNumbers(Long... luckyNumbers) {
+		for(Long luckyNumber : luckyNumbers) {
+			customer.addLuckyNumber(luckyNumber);
 		}
 		return this;
 	}

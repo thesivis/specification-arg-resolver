@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,15 +21,15 @@ import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.And;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.Spec;
 import org.assertj.core.api.Assertions;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.web.context.request.NativeWebRequest;
 
 import java.util.Collection;
 
-import static javax.persistence.criteria.JoinType.INNER;
-import static javax.persistence.criteria.JoinType.LEFT;
+import static jakarta.persistence.criteria.JoinType.INNER;
+import static jakarta.persistence.criteria.JoinType.LEFT;
 import static net.kaczmarzyk.spring.data.jpa.web.utils.NativeWebRequestBuilder.nativeWebRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -88,14 +88,14 @@ public class AnnotatedJoinFetchSpecInterfaceArgumentResolverTest extends Annotat
 				.withParameterValues("itemName", "Item-123").build();
 
 		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
-		QueryContext queryCtx = new WebRequestQueryContext(req);
+		QueryContext queryCtx = new DefaultQueryContext();
 
 		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
 		assertThat(resolved)
 				.isInstanceOf(OrderedItemNameFilter.class);
 
-		assertThat(innerSpecs(resolved))
+		assertThat(proxiedInnerSpecs(resolved))
 				.hasSize(2)
 				.containsExactlyInAnyOrder(
 						new JoinFetch<>(queryCtx, new String[]{ "orders" }, LEFT, true),
@@ -118,14 +118,14 @@ public class AnnotatedJoinFetchSpecInterfaceArgumentResolverTest extends Annotat
 				.withParameterValues("nickName", "Hom").build();
 
 		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
-		QueryContext queryCtx = new WebRequestQueryContext(req);
+		QueryContext queryCtx = new DefaultQueryContext();
 
 		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
 		assertThat(resolved)
 				.isInstanceOf(SpecExtendedByTwoOtherJoinFetchFilters.class);
 
-		Collection<Specification<Object>> innerSpecs = innerSpecs(resolved);
+		Collection<Specification<Object>> innerSpecs = proxiedInnerSpecs(resolved);
 
 		Assertions.assertThat(innerSpecs)
 				.hasSize(6)

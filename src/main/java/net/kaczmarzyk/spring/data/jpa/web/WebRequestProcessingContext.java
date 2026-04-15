@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,112 +15,119 @@
  */
 package net.kaczmarzyk.spring.data.jpa.web;
 
+import static java.util.Objects.isNull;
+import static net.kaczmarzyk.spring.data.jpa.web.annotation.MissingPathVarPolicy.EXCEPTION;
+import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.http.MediaType.parseMediaType;
+
+import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+import jakarta.servlet.http.HttpServletRequest;
+
+import net.kaczmarzyk.spring.data.jpa.web.annotation.MissingPathVarPolicy;
 import org.springframework.core.MethodParameter;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.http.MediaType;
 import org.springframework.web.context.request.NativeWebRequest;
 
+import net.kaczmarzyk.spring.data.jpa.utils.BodyParams;
+import net.kaczmarzyk.spring.data.jpa.utils.IOUtils;
+import net.kaczmarzyk.spring.data.jpa.utils.JsonBodyParams;
 import net.kaczmarzyk.spring.data.jpa.utils.PathVariableResolver;
 import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
 
-import javax.servlet.http.HttpServletRequest;
-
 /**
+ *
  * Provides information about Controller/method and WebRequest being processed.
  * It is a wrapper around low-level Spring classes, which provides easier access to e.g. path variables.
- * 
+ *
  * @author Tomasz Kaczmarzyk
  */
-public class WebRequestProcessingContext {
+public class WebRequestProcessingContext implements ProcessingContext {
 
 	private final MethodParameter methodParameter;
 	private final NativeWebRequest webRequest;
-	private String pathPattern;
+	private BodyParams bodyParams;
 
 	private Map<String, String> resolvedPathVariables;
+
+	private QueryContext queryContext;
 	
 	public WebRequestProcessingContext(MethodParameter methodParameter, NativeWebRequest webRequest) {
 		this.methodParameter = methodParameter;
 		this.webRequest = webRequest;
+		this.queryContext = new DefaultQueryContext();
 	}
 
+	@Override
 	public Class<?> getParameterType() {
 		return methodParameter.getParameterType();
 	}
 
+	@Override
 	public Annotation[] getParameterAnnotations() {
 		return methodParameter.getParameterAnnotations();
 	}
 
+	@Override
 	public String[] getParameterValues(String webParamName) {
 		return webRequest.getParameterValues(webParamName);
 	}
 
+	@Override
 	public QueryContext queryContext() {
-		return new WebRequestQueryContext(webRequest);
+		return queryContext;
 	}
 
-	public String getPathVariableValue(String pathVariableName) {
-		if(resolvedPathVariables == null) {
-			resolvedPathVariables = PathVariableResolver.resolvePathVariables(pathPattern(), actualWebPath());
+	@Override
+	public String getPathVariableValue(String pathVariableName, MissingPathVarPolicy missingPathVarPolicy) {
+		if (resolvedPathVariables == null) {
+			resolvedPathVariables = PathVariableResolver.resolvePathVariables(webRequest, methodParameter);
 		}
+
 		String value = resolvedPathVariables.get(pathVariableName);
-		if (value != null) {
-			return value;
-		} else {
+		if (value == null && missingPathVarPolicy == EXCEPTION) {
 			throw new InvalidPathVariableRequestedException(pathVariableName);
 		}
+
+		return value;
 	}
 
 	public String getRequestHeaderValue(String headerKey) {
 		return webRequest.getHeader(headerKey);
 	}
 
-	private String pathPattern() {
-		if (pathPattern != null) {
-			return pathPattern;
-		} else {
-			Class<?> controllerClass = methodParameter.getContainingClass();
-			if (controllerClass.getAnnotation(RequestMapping.class) != null) {
-				RequestMapping controllerMapping = controllerClass.getAnnotation(RequestMapping.class);
-				pathPattern = firstOf(controllerMapping.value(), controllerMapping.path());
-			}
-			
-			String methodPathPattern = null;
-			
-			if (methodParameter.hasMethodAnnotation(RequestMapping.class)) {
-				RequestMapping methodMapping = methodParameter.getMethodAnnotation(RequestMapping.class);
-				methodPathPattern = firstOf(methodMapping.value(), methodMapping.path());
-			} else if (methodParameter.hasMethodAnnotation(GetMapping.class)) {
-				GetMapping methodMapping = methodParameter.getMethodAnnotation(GetMapping.class);
-				methodPathPattern = firstOf(methodMapping.value(), methodMapping.path());
-			}
-			
-			if (methodPathPattern != null) {
-				pathPattern = pathPattern != null ? pathPattern + methodPathPattern : methodPathPattern;
-			}
-		}
-		if (pathPattern == null) {
-			throw new IllegalStateException("path pattern could not be resolved (searched for @RequestMapping or @GetMapping)");
-		}
-		return pathPattern;
+	@Override
+	public String[] getBodyParamValues(String bodyParamName) {
+		return getBodyParams().getParamValues(bodyParamName).toArray(new String[0]);
 	}
 
-	private String firstOf(String[] array1, String[] array2) {
-		if (array1.length > 0) {
-			return array1[0];
-		} else if (array2.length > 0) {
-			return array2[0];
+	private BodyParams getBodyParams() {
+		if (isNull(bodyParams)) {
+			this.bodyParams = BodyParams.empty();
+			String contentType = getRequestHeaderValue(CONTENT_TYPE);
+			if (!isNull(contentType)){
+				MediaType mediaType = parseMediaType(contentType);
+				if (APPLICATION_JSON.includes(mediaType)) {
+					this.bodyParams = JsonBodyParams.parse(getRequestBody());
+				}
+			}
 		}
-		return null;
+		return bodyParams;
 	}
 
-	private String actualWebPath() {
-		HttpServletRequest request = (HttpServletRequest) webRequest.getNativeRequest();
-		return request.getPathInfo() != null ? request.getPathInfo() : request.getRequestURI().substring(request.getContextPath().length());
+	private String getRequestBody() {
+		try {
+			HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
+			if (request == null) {
+				throw new IllegalStateException("Request body not present");
+			}
+			return IOUtils.toString(request.getInputStream(), StandardCharsets.UTF_8);
+		} catch (IOException ex) {
+			throw new RuntimeException("Cannot read request body", ex);
+		}
 	}
-	
 }

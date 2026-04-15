@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
  */
 package net.kaczmarzyk.spring.data.jpa.domain;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 
 import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
 
@@ -29,10 +29,7 @@ import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
  * <p>Does not require any http-parameters to be present, i.e. represents constant part of the query.</p>
  *
  * @author Tomasz Kaczmarzyk
- *
- * @deprecated Consider using {@link net.kaczmarzyk.spring.data.jpa.domain.Null Null}
  */
-@Deprecated
 public class IsNull<T> extends PathSpecification<T> implements ZeroArgSpecification {
 
 	private static final long serialVersionUID = 1L;

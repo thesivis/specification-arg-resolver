@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,20 @@
  */
 package net.kaczmarzyk.spring.data.jpa.domain;
 
+import com.jparams.verifier.tostring.ToStringVerifier;
 import net.kaczmarzyk.spring.data.jpa.Customer;
 import net.kaczmarzyk.spring.data.jpa.IntegrationTestBase;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import nl.jqno.equalsverifier.Warning;
-import org.junit.Before;
-import org.junit.Test;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static net.kaczmarzyk.spring.data.jpa.CustomerBuilder.customer;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 
 /**
@@ -37,7 +40,7 @@ public class NotLikeTest extends IntegrationTestBase {
     Customer margeSimpson;
     Customer moeSzyslak;
     
-    @Before
+    @BeforeEach
     public void initData() {
         homerSimpson = customer("Homer", "Simpson").street("Evergreen Terrace").build(em);
         margeSimpson = customer("Marge", "Simpson").street("Evergreen Terrace").build(em);
@@ -66,14 +69,16 @@ public class NotLikeTest extends IntegrationTestBase {
         assertThat(result).hasSize(1).containsOnly(moeSzyslak);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void rejectsMissingArgument() {
-        new NotLike<>(queryCtx, "path", new String[] {});
+        assertThatThrownBy(() -> new NotLike<>(queryCtx, "path", new String[] {}))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void rejectsInvalidNumberOfArguments() {
-        new NotLike<>(queryCtx, "path", new String[] {"a", "b"});
+        assertThatThrownBy(() -> new NotLike<>(queryCtx, "path", new String[] {"a", "b"}))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -81,6 +86,13 @@ public class NotLikeTest extends IntegrationTestBase {
         EqualsVerifier.forClass(NotLike.class)
                 .usingGetClass()
                 .suppress(Warning.NONFINAL_FIELDS)
+                .verify();
+    }
+
+    @Test
+    public void toStringVerifier() {
+        ToStringVerifier.forClass(NotLike.class)
+                .withIgnoredFields("queryContext")
                 .verify();
     }
 }

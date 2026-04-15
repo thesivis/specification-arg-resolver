@@ -1,6 +1,306 @@
 * Added conversion support for `Calendar`
 * Fixed the bug with redundant joins
 
+v4.0.0
+======
+* Build integrated with Spring Boot 4 (and related Hibernate version). This version updates to spring-boot-dependencies-4.0.0 and deals with breaking changes from the upstream dependencies.
+* If you need a release compatible with Spring Boot 3.x - please select the latest 3.x version of specification-arg-resolver
+* **BREAKING CHANGE**: Removed support for `Calendar`, `Date` in favour of java.time API (JPA 3.2)
+* **BREAKING CHANGE**: please be aware that new version of Hibernate may generate different queries than the previous version. In context of this library, this is noticable when generating joins. For the same set of annotations and the same request, SAR 3.x will generate `INNER` and SAR 4.x will generate `LEFT` join on implicit join table queries. This is strictly related to Hibernate internals, not SAR-specific behaviour
+* Spring Boot 4 support developed mainly by @sourcloud 🚀 with review and additional fixes from @jradlica and @tkaczmarzyk
+* added support for extended interfaces when generating OpenAPI docs. Developed by @gibbz00 🚀
+* bumped dependency versions
+* added `InIgnoreCase` and `NotInIgnoreCase` - developed by @cschierle 🚀
+* added case insensitivity support to boolean parameter values - developed by @cschierle 🚀
+
+v3.3.0
+======
+* added `InIgnoreCase` and `NotInIgnoreCase` - developed by @cschierle 🚀
+* added case insensitivity support to boolean parameter values - developed by @cschierle 🚀
+
+v3.2.2
+======
+* bumped commons-lang3 dependency version to 3.18.0 to avoid known security issues
+
+v3.2.1
+======
+* added support for extended interfaces when generating OpenAPI docs. Developed by @gibbz00 🚀
+
+v3.2.0
+=======
+* **BREAKING CHANGE**: Fixed case-insensitive specifications (`EqualIgnoreCase`, `NotEqualIgnoreCase`, `LikeIgnoreCase`, `NotLikeIgnoreCase`, `StartingWithIgnoreCase`, `EndingWithIgnoreCase`) to use database `UPPER()` function for both sides of comparison
+  * This fixes incorrect query results when database and application use different locale settings or handle special characters differently (e.g., German ß character)
+  * Please see `Case Insensitive Support` section of README.md for more details.
+* Developed by @jradlica 🚀
+
+v3.1.1
+=======
+* Optimized distinct query evaluation in join
+  * From now on, during join evaluation, the query is set as `distinct` only when the join is actually being evaluated.
+  * Previously, `distinct` was set (depending on the config) unconditionally (even when the join was not evaluated), which could lead to performance issues.
+    * For example, previously for the following specification:
+        ```java
+        @RequestMapping("/join-distinct/customers/optionalParams")
+        public Object joinCountSpecificationOptionalParams(
+                @Join(path = "badges", alias = "b", type = LEFT)
+                @And({
+                        @Spec(path = "b.badgeType", params = "badge", spec = NotEqual.class),
+                        @Spec(path = "lastName", spec = Equal.class)
+                }) Specification<Customer> spec) {
+
+            return customerRepository.findAll(spec).stream()
+                    .map(CustomerDto::from)
+                    .collect(toList());
+        }
+        ```
+      and requests:
+      * r1: `GET /join-distinct-customers/optionalParams?page=1&size=1` - no filtering
+      * r2: `GET /join-distinct-customers/optionalParams/?page=1&size=1&lastName=Simpson` - filtering on non-joined columns
+
+      * following queries were previously generated:
+        * r1 - no filtering
+          ```sql
+          select distinct c1_0.id,c1_0.street,... from customer c1_0 offset ? rows fetch first ? rows only
+          select distinct count(distinct c1_0.id) from customer c1_0
+          ```
+        * r2 - filtering on non-joined columns
+          ```sql
+          select distinct c1_0.id,c1_0.street,... from customer c1_0 where c1_0.last_name=? offset ? rows fetch first ? rows only,
+          select distinct count(distinct c1_0.id) from customer c1_0 where c1_0.last_name=?
+          ```
+      * from now, these queries are generated:
+        * r1 - no filtering
+          ```sql
+          select c1_0.id,c1_0.street, ... from customer c1_0 offset ? rows fetch first ? rows only;
+          select count(c1_0.id) from customer c1_0;
+          ```
+        * r2 - filtering on non-joined columns
+          ```sql
+          select c1_0.id,c1_0.street, ... from customer c1_0 where c1_0.last_name=? offset ? rows fetch first ? rows only;
+          select count(c1_0.id) from customer c1_0 where c1_0.last_name=?;
+          ```
+
+v3.1.0
+=======
+* Json body parameters no longer throws when:
+  * Content-type is omitted
+  * Content-type is any other than application/json
+
+  This means that empty request body is accepted when json paths are present in specifications.
+
+v3.0.1
+=======
+* Fixed a bug related to specifications that always returned all available values. Fixed specs:
+  * `InThePast`
+  * `InTheFuture`
+
+v3.0.0
+=======
+* Migrated project to spring boot 3.0 and java 17
+  * Spring boot 3.0 is based on Hibernate version 6.X because in this version of hibernate all query results are distinct by default. This shouldn't affect most projects, but please be extra careful if you've ever used a spec with the `distinct=false` attribute.
+* Added support for spring native-image.
+  * Specification-arg-resolver can be used in GraalVM native images, but it requires several additional configuration steps. This is due to the fact that this library relies on Java reflection heavily. Please see [README_native_image.md](README_native_image.md) for the details
+* Modified Springdoc-openapi dependency to be compatible with spring boot 3.0
+* Refactored `IsMember`, `IsNotMember` specifications - they no longer use reflection explicitly.
+* changed default join type in `@Join` from `INNER` to `LEFT`. I.e. if you have been using `@Join` with default join type:
+  ```java
+  @Join(path="addresses", alias="a")
+  ```
+  Then, if you want to keep INNER join behaviour, you need to make it explicit (otherwise it will be LEFT):
+  ```java
+  @Join(path="addresses", alias="a", type=JoinType.INNER)
+  ```
+* Changed join lazy evaluation:
+  * Inner joins are now evaluated even if there is no filtering applied on the joined part due to a missing HTTP param (as inner join may narrow down query results)
+  * For non-distinct queries, all joins are now evaluated eagerly (even if there is no filtering applied on the joined part). Reminder for Hibernate users: from Hibernate 6 onwards, all queries are distinct anyway
+  * in all other situations, left and right joins are not evaluated unless there is filtering on the joined part (and the corresponding HTTP param is present)
+* Removed all deprecated items, including:
+  * `DateAfter`, `DateAfterInclusive`, `DateBefore`, `DateBeforeInclusive` - use `GreaterThan`, `GreaterThanOrEqual`, `LessThan` or `LessThanOrEqual`
+  * `DateBetween` - use `Between`
+  * `EqualEnum` - use `Equal`
+  * `@Joins` container annotation - use repeated `@Join` and `@JoinFetch`
+
+v2.19.0
+=======
+* Json body parameters no longer throws when:
+  * Content-type is omitted
+  * Content-type is any other than application/json
+
+  This means that empty request body is accepted when json paths are present in specifications.
+
+v2.18.1
+=======
+* Fixed a bug related to specifications that always returned all available values. Fixed specs:
+  * `InThePast`
+  * `InTheFuture`
+
+v2.18.0
+=======
+* `IsNull` specification is no longer deprecated
+* Introduced `IsNotNull` specification.
+
+v2.17.0
+=======
+* Introduced converter for `char` primitive and `Character` class
+* Introduced new specifications:
+  * `isEmpty`, `isNotEmpty` - these specifications filter out elements that have empty (not empty) collection of elements, that is defined under `path` in `@Spec` annotation.
+  * `Empty` - this specification filters for collections using `is empty` or `is not empty`, depending on the value of the parameter passed in (e.g. ` where customer.orders is empty`).
+  * `NotEmpty` - it is a negation for `Empty` specification.
+  * `isTrue`, `isFalse` - these specifications filter with `true`/`false` value of particular field defined under `path` in `@Spec` annotation.
+  * `True` - this specification filters using `true` or `false` for a boolean type field, depending on the value of the parameter passed in.
+  * `False` - it is a negation for `True` specification.
+  * `isMember`, `isNotMember` - checks if the value passed as HTTP parameter is a member of a collection attribute of an entity (defined under `path` in `@Spec` annotation).
+
+v2.16.0
+=======
+* Introduced `EqualDay` specification which allows finding all records within particular date (day), ignoring time.
+* Added ability to set custom `Locale` during resolver registration:
+  ```java
+  @Override
+  public void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
+      argumentResolvers.add(new SpecificationArgumentResolver(new Locale("pl", "PL"))); // pl_PL will be used as the default locale
+  }
+  ```
+  This matters for case-insensitive specifications (`EqualIgnoreCase`, `NotEqualIgnoreCase`, `LikeIgnoreCase`, `StartingWithIgnoreCase` and `EndingWithIgnoreCase`) which used system default locale in previous versions of the library. If locale is not provided, then system default will be used (exactly as in the previous version).
+* Added ability to set custom `Locale` in `@Spec.config` (this overrides the global default mentioned above):
+  ```java
+  @Spec(path = "name", spec = EqualIgnoreCase.class, config = "tr_TR")
+  ```
+* Introduced new case-insensitive specification `NotLikeIgnoreCase` that works in similar way as `LikeIgnoreCase` but is its negation.
+* introduced `missingPathVarPolicy` to `@Spec` annotation with available values: `IGNORE` and `EXCEPTION` (default). New policy is intended to configure behaviour on missing path variable.
+  * for more details please check out section `Support for multiple paths with path variables` in `README.md`.
+* additional Javadocs
+
+v2.15.1
+======
+* updated spring-boot-dependencies to 2.7.7
+* fixed potential issue with detecting non-empty HTTP headers
+* fixed redundant proxy creation for multi-spec specifications when expected type is not a spec-interface
+
+v2.15.0
+=======
+* added support for using datetime formats without time (e.g. `yyyy-MM-dd`) for types that contain time (`LocalDateTime`, `Timestamp`, `Instant`, `OffsetDateTime`). Missing time values are filled with zeros, e.g. when sending `2022-12-14` as `LocalDateTime` parameter, the conversion will result in `2022-12-14 00:00`.
+* introduced `InTheFuture` specification, that supports date-type paths
+* introduced `InThePast` specification, that supports date-type paths
+* added exception messages for invalid parameter array size in specifications that missed one
+
+v2.14.1
+=======
+* Added support for `content-type` header containing additional directives like `encoding=UTF-8`/`charset=UTF-8`. Previously, only `application/json` was accepted as `content-type` for request body filters.
+
+v2.14.0
+=======
+* added support for `jsonPaths` during generation of swagger documentation.
+* fixed bugs related to swagger support:
+  * fixed marking `headers` and `pathVars` parameters as required/non-required. From now all `pathVars` are marked as required and `headers` can be marked as required depending on controller method configuration.
+  * fixed duplicated parameters when the same parameter was defined in spec and controller method (e.g. when we defined `firstName` parameter in our `@Spec` and also in `@RequestParam("firstName")`).
+* added `OnTypeMismatch.IGNORE` which ignores specification containing mismatched parameter (except `spec = In.class` - in this specification only mismatched parameter values are ignored, but other ones which are valid are used to build a Specification).
+  * For example, for the following endpoint:
+    ```java
+    @RequestMapping(value = "/customers", params = { "id" })
+    @ResponseBody
+    public Object findById(
+           @Spec(path = "id", params = "id", spec = Equal.class, onTypeMismatch = IGNORE) Specification<Customer> spec) {
+    return customerRepo.findAll(spec);
+    }
+    ```
+  * For request with mismatched `id` param (e.g. `?id=invalidId`) the whole specification will be ignored and all records from the database (without filtering) will be returned.
+  * But for the following endpoint with `In.class` specification type:
+    ```java
+    @RequestMapping(value = "/customers", params = { "id_in" })
+    @ResponseBody
+    public Object findByIdIn(
+       @Spec(path = "id", params = "id_in", spec = In.class, paramSeparator = ",", onTypeMismatch = IGNORE) Specification<Customer> spec) {
+			 return customerRepo.findAll(spec);
+    }
+    ```
+  * For request with params `?id_in=1,2,invalidId` - only valid params will be taken into consideration (invalid params (not the whole specification) will be ignored)
+  * For request with only invalid params `id_in=invalidId1,invalidId2` - an empty result will be returned as there are only invalid parameters (which are ignored).
+
+v2.13.0
+=======
+* added Json request body support. This requires adding `gson` dependency to your project and has some limitations -- see json section of README.md for more details.
+
+v2.12.1
+=======
+* Fixed bug in `SpecificationBuilder` that was creating doubled query conditions.
+* Changed approach for resolving path variables when processing request.
+* From now on, the controllers with global prefixes (configured using `org.springframework.web.servlet.config.annotation.PathMatchConfigurer`) should be properly handled:
+  * For example, apps with following configuration are now supported:
+    ```java
+    @Override
+    public void configurePathMatch(PathMatchConfigurer configurer) {
+      configurer.addPathPrefix("/api/{tenantId}", HandlerTypePredicate.forAnnotation(RestController.class));
+    }
+    ```
+    Below spec will be properly resolved for request URI: `/api/123/findCustomers?firstName=John`
+    ```java
+    @RestController
+    public static class TestController {
+
+        @GetMapping("/findCustomers")
+        public List<Customer> findCustomersByFirstName(@And(value = {
+        		@Spec(path = "tenantId", pathVar = "tenantId", spec = Equal.class),
+        		@Spec(path = "firstName" param = "firstName", spec = Equal.class)
+        }) Specification<Customer> spec) {
+        	return customerRepository.findAll(spec);
+        }
+    }
+    ```
+
+v2.12.0
+=======
+* added support for `SpringDoc-OpenAPI` library -- parameters from specification will be shown in generated documentation
+
+v2.11.0
+=======
+* replaced hibernate java persistence api dependency with java persistence api (`org.hibernate.javax.persistence` -> `javax.persistence`)
+* Added `SpecificationBuilder` that allows creating specification apart from web layer.
+
+  For example:
+  * Let's assume the following specification:
+    ```java
+    @Join(path = "orders", alias = "o")
+    @Spec(paths = "o.itemName", params = "orderItem", spec=Like.class)
+    public interface CustomerByOrdersSpec implements Specification<Customer> {
+    }
+    ```
+  * To create specifications outside the web layer, you can use the specification builder as follows:
+    ```java
+    Specification<Customer> spec = SpecificationBuilder.specification(CustomerByOrdersSpec.class) // good candidate for static import
+          .withParam("orderItem", "Pizza")
+          .build();
+    ```
+  * It is recommended to use builder methods that corresponding to the type of argument passed to specification interface, e.g.:
+    * For:
+    ```java
+    @Spec(paths = "o.itemName", params = "orderItem", spec=Like.class)
+    ```
+    you should use `withParam(<argName>, <values...>)` method. Each argument type (param, header, path variable) has its own corresponding builder method:
+    * `params = <args>` => `withParam(<argName>, <values...>)`, single param argument can provide multiple values
+    * `pathVars = <args>` => `withPathVar(<argName>, <value>)`, single pathVar argument can provide single value
+    * `headers = <args>` => `withHeader(<argName>, <value>)`, single header argument can provide single value
+
+  The builder exposes a method `withArg(<argName>, <values...>)` which allows defining a fallback value. It is recommended to use it unless you really know what you are doing.
+
+v2.10.0
+=======
+* fixed bug with not evaluated join fetches in count queries (e.g. during pagination) -- from now on, join fetches in count queries are either skipped (if they are used solely for initialization of lazy collections) or converted to regular joins (if there is any filtering applied on the fetched part). See [issue 138](https://github.com/tkaczmarzyk/specification-arg-resolver/issues/138) for more details.
+* added conversion support for `Timestamp`
+* Added strict date format validation for `Date`, `Calendar` and `Timestamp` in `Converter` component.
+  * Let's assume following specification definition:
+    `@Spec(path = "startDate", params = "periodStart", spec = Equal.class, config = "yyyy-MM-dd")`
+    * Previously, the request parameter values was parsed as follows:
+      * `2022-11-28-unnecessary-additional-characters` was parsed to `2022-11-28` (if the date format was satisfied (checking from left to right) the next additional characters were ignored)
+      * `28-11-2022` was parsed to invalid date (different from `2022-11-28`), order of specific parts of date was not validated.
+      * `1-1-1` was parsed to invalid date (length of specific parts of date (year, month, day) was not validated)
+    * From now on strict policy of date format validation is introduced. The Date has to be in specific format and of specific length.
+
+v2.9.0
+======
+* Fixed the bug with redundant joins
+* Added conversion support for `Calendar`
+
 v2.8.0
 ======
 * Added [spring cache](https://docs.spring.io/spring-boot/docs/2.6.x/reference/html/io.html#io.caching) support for custom specification interfaces. From now on, specifications generated from specification interfaces with the same params are equal and have the same `hashCode` value.
@@ -16,13 +316,13 @@ v2.8.0
   	return customerRepository.findAll(spec, Sort.by("id"));
   }
   ```
-  
+
   Please remember that:
-  * Join fetch path can use only aliases of another fetch joins. 
-  * Join path can use only aliases of another joins. 
+  * Join fetch path can use only aliases of another fetch joins.
+  * Join path can use only aliases of another joins.
 
   (see [README.md](README.md#join-fetch) for the details)
-  
+
 v2.7.0
 ======
 * added support for resolving HTTP param name from a SpEL expression (via `@Spec.paramsInSpEL`)
@@ -42,10 +342,10 @@ v2.6.1
 
 v2.6.0
 ======
-* Added support for multi-level joins. 
+* Added support for multi-level joins.
 
   It's now possible to define multi-level join where each join can use aliases defined by previous joins (see [README.md](https://github.com/tkaczmarzyk/specification-arg-resolver/blob/master/README.md) for the details).
-  
+
   For example:
   ```java
   @RequestMapping(value = "/findCustomersByOrderedItemTag")
@@ -57,9 +357,9 @@ v2.6.0
   	return customerRepo.findAll(spec, Sort.by("id"));
   }
   ```
-  
+
   Multi-level join fetch could be defined similarly to multi-level join.
- 
+
   For example:
   ```java
   @RequestMapping(value = "/findCustomers")
@@ -72,16 +372,16 @@ v2.6.0
   			.collect(toList());
 
 * Added support for [SpEL](https://docs.spring.io/spring/docs/5.2.7.RELEASE/spring-framework-reference/core.html#expressions) and [property placeholders](https://docs.spring.io/spring/docs/current/javadoc-api/org/springframework/context/support/PropertySourcesPlaceholderConfigurer.html) in `@Spec` attributes: `constVal`, `defaultVal`.
- 
+
   To enable SpEL support:
   * Configure `SpecificationArgumentResolver` by passing `AbstractApplicationContext` in constructor
-  * Set `Spec` attribute `valueInSpEL` value to `true` 
-  
+  * Set `Spec` attribute `valueInSpEL` value to `true`
+
    Configuration example:
    ```java
   	@Autowired
   	AbstractApplicationContext applicationContext;
-  	
+
   	@Override
   	public void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
   		argumentResolvers.add(new SpecificationArgumentResolver(applicationContext));
@@ -95,7 +395,7 @@ v2.6.0
   @ResponseBody
   public Object findByLastName(
           @Spec(path = "id", params="lastName", defaultVal='${search.default-params.lastName}', valueInSpEL = true, spec = Equal.class) Specification<Customer> spec) {
-  	
+
   	return customerRepo.findAll(spec);
   }
   ```
@@ -112,7 +412,7 @@ v2.6.0
   @ResponseBody
   public Object findCustomersWhoCameFromTheFuture(
           @Spec(path = "id", params="birthDate", defaultVal='#{T(java.time.LocalDate).now()}', valueInSpEL = true, spec = GreaterThanOrEqual.class) Specification<Customer> spec) {
-  	
+
   	return customerRepo.findAll(spec);
   }
   ```
@@ -121,7 +421,7 @@ v2.5.0
 ======
 * Added support for repeatable `@Join` and `@JoinFetch` annotations. `@Joins` annotation is now deprecated and it's going to be removed in the future.
 
-    To specifying multiple different joins, repeated `@Join` annotation should be used: 
+    To specifying multiple different joins, repeated `@Join` annotation should be used:
     ```java
     @RequestMapping(value = "/findBy", params = {""})
     public void findByBadgeTypeAndOrderItemName(
@@ -150,27 +450,27 @@ v2.4.0
 ======
 * Added conversion support for `UUID`, `OffsetDatetime`, `Instant`
 
-* Added a fallback mechanism to `Converter` which uses converters registered in ConversionService. 
+* Added a fallback mechanism to `Converter` which uses converters registered in ConversionService.
 The `Converter` in case of missing converter for a given type tries to find a required converter in [Spring](https://docs.spring.io/spring/docs/current/javadoc-api/org/springframework/core/convert/ConversionService.html) `ConversionService` , if `ConversionService` does not support required conversion `IllegalArgumentException` will be thrown. If the required converter is not present in `Converter` and `ConversionService` it could be defined and used as follows:
 
   ```java
   @Configuration
   @EnableJpaRepositories
   public class MyConfig implements WebMvcConfigurer {
-   
+
       @Autowired
       ConversionService conversionService;
-      
+
       @Override
       public void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
           argumentResolvers.add(new SpecificationArgumentResolver(conversionService));
       }
-  
+
       @Override
       public void addFormatters(FormatterRegistry registry) {
           registry.addConverter(new StringToAddressConverter());
       }
-      
+
       public static class StringToAddressConverter implements Converter<String, Address> {
           @Override
           public Address convert(String rawAddress) {
@@ -179,7 +479,7 @@ The `Converter` in case of missing converter for a given type tries to find a re
               return address;
           }
       }
-  
+
       ...
   }
   ```
@@ -188,14 +488,14 @@ v2.3.0
 ======
 
 * Added support for path variables with regexp. All patterns supported by [spring AntPathMatcher](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/util/AntPathMatcher.html) are supported.
-  
+
   For example:
   ```java
   @RequestMapping(value = "/pathVar/customers/{customerId:[0-9]+}")
   @ResponseBody
   public Object findById(
           @Spec(path = "id", pathVars = "customerId", spec = Equal.class) Specification<Customer> spec) {
-  	
+
   	return customerRepo.findAll(spec);
   }
   ```
@@ -203,14 +503,14 @@ v2.3.0
 v2.2.2
 ======
 
-* Fixed support for custom interfaces with complex inheritance tree. In previous versions, annotations: @Join, @JoinFetch, @Joins were supported only for the lowest interface in the inheritance tree. 
+* Fixed support for custom interfaces with complex inheritance tree. In previous versions, annotations: @Join, @JoinFetch, @Joins were supported only for the lowest interface in the inheritance tree.
 
     Following example didn't work before fix:
      ```java
       @Join(path= "orders", alias = "o")
       @Spec(path="o.id", params="orderId", spec=Equal.class)
       public interface CommonFilter<T> extends Specification<T> { }
-      
+
       public interface CustomerFilter extends CommonFilter<Customer> { }
      ```
 
@@ -247,16 +547,16 @@ v2.1.1
 v2.1.0
 ======
 
-* added possibility to define a default value for filtering, as a fallback when HTTP param is not present. For example this controller method: 
+* added possibility to define a default value for filtering, as a fallback when HTTP param is not present. For example this controller method:
   ```java
   @RequestMapping("/users")
   public Object findByRole(
                     @Spec(path="role", spec=Equal.class, defaultVal="USER") Specification<User> spec) {
-  
+
       return userRepo.findAll(spec);
   }
   ```
-  
+
   Would handle request such as `GET /users` with the following query: `select u from Users u where u.role = 'USER'`.
 * added new specifications: `StartingWith`, `EndingWith` and their case-insensitive counterparts
 * added new specification negations: `NotIn`, `NotLike`
@@ -312,13 +612,13 @@ v1.1.0
   @RequestMapping("/customers")
   @ResponseBody
   public Object findNotDeletedCustomersByFirstName(FirstNameSpec spec) {
-      
+
     return repository.findAll(spec);
   }
   ```
 
   will accept HTTP requests such as `GET /customers?firstName=Homer` and execute JPA queries such as `where firstName = 'Homer' and deleted = false`.
- 
+
 
 v1.0.0
 ======
@@ -334,9 +634,9 @@ v1.0.0
           Specification<Customer> spec) {
 
       return repository.findAll(spec);
-  }  
+  }
   ```
-  
+
   Of course you can use `@Join` on annotated custom specification interfaces:
 
   ```java
@@ -357,7 +657,7 @@ v1.0.0
 
   ```
 
-* `@Joins` annotation has been changed to take instances of `@Join` as `value` parameter (was `@JoinFetch`). `@JoinFetch` might be passed to `join` param of `@Joins` 
+* `@Joins` annotation has been changed to take instances of `@Join` as `value` parameter (was `@JoinFetch`). `@JoinFetch` might be passed to `join` param of `@Joins`
 
 v0.9.2
 ======
@@ -417,7 +717,7 @@ v0.6.0
   }
   ```
 * added optional `constVal` attribute in `@Spec`. It allows to define a constant part of the query that does not use any HTTP parameters, e.g.:
-  
+
   ```java
   @And({
       @Spec(path="deleted", spec=Equal.class, constVal="false"),

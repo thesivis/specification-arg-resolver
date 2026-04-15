@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,16 +40,16 @@ class OrSpecificationResolver implements SpecificationResolver<Or> {
         return Or.class;
     }
 
-    public Specification<Object> buildSpecification(WebRequestProcessingContext context, Or def) {
+    public Specification<Object> buildSpecification(ProcessingContext context, Or def) {
         List<Specification<Object>> innerSpecs = new ArrayList<Specification<Object>>();
         for (Spec innerDef : def.value()) {
             Specification<Object> innerSpec = specResolver.buildSpecification(context, innerDef);
-            if (innerSpec != null) {
+            if (innerSpec != null && !innerSpec.equals(Specification.unrestricted())) {
                 innerSpecs.add(innerSpec);
             }
         }
         
-        return innerSpecs.isEmpty() ? null : new Disjunction<Object>(innerSpecs);
+        return innerSpecs.isEmpty() ? Specification.unrestricted() : new Disjunction<Object>(innerSpecs);
     }
 
 }

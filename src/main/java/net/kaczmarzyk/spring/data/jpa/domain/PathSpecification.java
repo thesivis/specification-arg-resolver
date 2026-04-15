@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,19 @@
  */
 package net.kaczmarzyk.spring.data.jpa.domain;
 
-import javax.persistence.criteria.Path;
-import javax.persistence.criteria.Root;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Root;
 
 import org.springframework.data.jpa.domain.Specification;
 
 import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
 
+import java.util.Objects;
+
 
 /**
+ * Base class for {@link Specification} types supported by this library out of the box.
+ * 
  * @author Tomasz Kaczmarzyk
  */
 public abstract class PathSpecification<T> implements Specification<T> {
@@ -88,27 +92,16 @@ public abstract class PathSpecification<T> implements Specification<T> {
 		return result;
 	}
 
-	@SuppressWarnings("rawtypes")
 	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
+	public boolean equals(Object o) {
+		if (this == o) {
 			return true;
-		if (obj == null)
+		}
+		if (o == null || getClass() != o.getClass()) {
 			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		PathSpecification other = (PathSpecification) obj;
-		if (path == null) {
-			if (other.path != null)
-				return false;
-		} else if (!path.equals(other.path))
-			return false;
-		if (queryContext == null) {
-			if (other.queryContext != null)
-				return false;
-		} else if (!queryContext.equals(other.queryContext))
-			return false;
-		return true;
+		}
+		PathSpecification<?> that = (PathSpecification<?>) o;
+		return Objects.equals(path, that.path) &&
+				Objects.equals(queryContext, that.queryContext);
 	}
-
 }

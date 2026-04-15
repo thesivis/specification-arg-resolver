@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,17 +19,20 @@ import net.kaczmarzyk.spring.data.jpa.Customer;
 import net.kaczmarzyk.spring.data.jpa.IntegrationTestBase;
 import net.kaczmarzyk.spring.data.jpa.utils.Converter;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.OnTypeMismatch;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.text.ParseException;
 import java.util.List;
 
 import static net.kaczmarzyk.spring.data.jpa.CustomerBuilder.customer;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 
 /**
+ * (converted to use GreaterThan after dropping date-specific specification classes in 3.0.0)
+ * 
  * @author Tomasz Kaczmarzyk
  */
 public class DateAfterTest extends IntegrationTestBase {
@@ -38,7 +41,7 @@ public class DateAfterTest extends IntegrationTestBase {
     Customer margeSimpson;
     Customer moeSzyslak;
     
-    @Before
+    @BeforeEach
     public void initData() {
         homerSimpson = customer("Homer", "Simpson").registrationDate(2014, 03, 07).build(em);
         margeSimpson = customer("Marge", "Simpson").registrationDate(2014, 03, 12).build(em);
@@ -47,14 +50,14 @@ public class DateAfterTest extends IntegrationTestBase {
     
     @Test
     public void filtersByRegistrationDateWithDefaultDateFormat() throws ParseException {
-    	DateAfter<Customer> after13th = new DateAfter<>(queryCtx, "registrationDate", new String[] { "2014-03-13" }, defaultConverter);
+    	GreaterThan<Customer> after13th = new GreaterThan<>(queryCtx, "registrationDate", new String[] { "2014-03-13" }, defaultConverter);
         
         List<Customer> result = customerRepo.findAll(after13th);
         assertThat(result)
             .hasSize(1)
             .containsOnly(moeSzyslak);
         
-        DateAfter<Customer> after10th = new DateAfter<>(queryCtx, "registrationDate", new String[] { "2014-03-10" }, defaultConverter);
+        GreaterThan<Customer> after10th = new GreaterThan<>(queryCtx, "registrationDate", new String[] { "2014-03-10" }, defaultConverter);
         
         result = customerRepo.findAll(after10th);
         assertThat(result)
@@ -64,7 +67,7 @@ public class DateAfterTest extends IntegrationTestBase {
     
     @Test
     public void filtersByRegistrationDateWithCustomDateFormat() throws ParseException {
-    	DateAfter<Customer> after13th = new DateAfter<>(queryCtx, "registrationDate", new String[] {"13-03-2014"},
+    	GreaterThan<Customer> after13th = new GreaterThan<>(queryCtx, "registrationDate", new String[] {"13-03-2014"},
     			Converter.withDateFormat("dd-MM-yyyy", OnTypeMismatch.EMPTY_RESULT, null));
         
         List<Customer> result = customerRepo.findAll(after13th);
@@ -73,13 +76,15 @@ public class DateAfterTest extends IntegrationTestBase {
             .containsOnly(moeSzyslak);
     }
     
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void rejectsInvalidNumberOfArguments() throws ParseException {
-        new DateAfter<>(queryCtx, "path", new String[] { "2014-03-10", "2014-03-11" }, defaultConverter);
+        assertThatThrownBy(() -> new GreaterThan<>(queryCtx, "path", new String[] { "2014-03-10", "2014-03-11" }, defaultConverter))
+                .isInstanceOf(IllegalArgumentException.class);;
     }
     
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void rejectsMissingArgument() throws ParseException {
-        new DateAfter<>(queryCtx, "path", new String[] {}, defaultConverter);
+        assertThatThrownBy(() -> new GreaterThan<>(queryCtx, "path", new String[] {}, defaultConverter))
+        		.isInstanceOf(IllegalArgumentException.class);;
     }
 }

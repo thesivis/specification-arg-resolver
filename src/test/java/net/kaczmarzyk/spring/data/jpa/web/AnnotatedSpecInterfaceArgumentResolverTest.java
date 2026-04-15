@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,18 +24,19 @@ import net.kaczmarzyk.spring.data.jpa.domain.Like;
 import net.kaczmarzyk.spring.data.jpa.utils.Converter;
 import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.*;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.web.context.request.NativeWebRequest;
 
 import java.util.Collection;
+import java.util.Locale;
 
 import static net.kaczmarzyk.spring.data.jpa.web.utils.NativeWebRequestBuilder.nativeWebRequest;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 
@@ -128,7 +129,7 @@ public class AnnotatedSpecInterfaceArgumentResolverTest extends AnnotatedSpecInt
 	public static interface GrandChildInterface extends ChildInterface, Chil2dInterface {
 	}
 
-	Converter converter = Converter.withTypeMismatchBehaviour(OnTypeMismatch.EMPTY_RESULT, null);
+	Converter converter = Converter.withTypeMismatchBehaviour(OnTypeMismatch.EMPTY_RESULT, null, Locale.getDefault());
 
 	public static class TestController {
 		public void methodWithSimpleSpec(IfaceWithSimpleSpec arg) {}
@@ -144,9 +145,9 @@ public class AnnotatedSpecInterfaceArgumentResolverTest extends AnnotatedSpecInt
 	}
 
 	NativeWebRequest req = mock(NativeWebRequest.class);
-	QueryContext queryCtx = new WebRequestQueryContext(req);
+	QueryContext queryCtx = new DefaultQueryContext();
 
-	@Before
+	@BeforeEach
 	public void init() {
 		req = nativeWebRequest()
 				.withParameterValues("deleted", "false")
@@ -237,7 +238,7 @@ public class AnnotatedSpecInterfaceArgumentResolverTest extends AnnotatedSpecInt
 
 		Specification<?> resolved = (Specification<?>) resolver.resolveArgument(param, null, req, null);
 
-		Collection<Specification<Object>> resolvedInnerSpecs = innerSpecs(resolved);
+		Collection<Specification<Object>> resolvedInnerSpecs = proxiedInnerSpecs(resolved);
 		assertThat(resolvedInnerSpecs)
 				.hasSize(4)
 				.containsOnly(

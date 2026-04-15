@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 package net.kaczmarzyk.spring.data.jpa.domain;
 
+import com.jparams.verifier.tostring.ToStringVerifier;
+import jakarta.persistence.criteria.JoinType;
 import net.kaczmarzyk.spring.data.jpa.Customer;
 import net.kaczmarzyk.spring.data.jpa.IntegrationTestBase;
 import net.kaczmarzyk.spring.data.jpa.ItemTag;
@@ -22,12 +24,11 @@ import net.kaczmarzyk.spring.data.jpa.Order;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import nl.jqno.equalsverifier.Warning;
 import org.hibernate.Hibernate;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.domain.Sort;
 
-import javax.persistence.criteria.JoinType;
 import java.util.List;
 
 import static net.kaczmarzyk.spring.data.jpa.CustomerBuilder.customer;
@@ -35,8 +36,8 @@ import static net.kaczmarzyk.spring.data.jpa.ItemTagBuilder.itemTag;
 import static net.kaczmarzyk.spring.data.jpa.OrderBuilder.order;
 import static net.kaczmarzyk.spring.data.jpa.utils.ThrowableAssertions.assertThrows;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 /**
@@ -48,7 +49,7 @@ public class JoinFetchTest extends IntegrationTestBase {
     Customer margeSimpson;
     Customer bartSimpson;
     
-    @Before
+    @BeforeEach
     public void initData() {
         ItemTag books = itemTag("Books").build(em);
 
@@ -326,25 +327,9 @@ public class JoinFetchTest extends IntegrationTestBase {
         assertThrows(
                 InvalidDataAccessApiUsageException.class,
                 () -> customerRepo.findAll(spec),
-                "Join fetch definition with alias: 'o' not found! " +
-                        "Make sure that join with the alias 'o' is defined before the join with path: 'o.tags'; " +
-                        "nested exception is java.lang.IllegalArgumentException: " +
-                        "Join fetch definition with alias: 'o' not found! Make sure that join with the alias 'o' is defined before the join with path: 'o.tags'"
-        );
+                "Join fetch definition with alias: 'o' not found! Make sure that join with the alias 'o' is defined before the join with path: 'o.tags'"        );
     }
 
-    @Test
-    public void performsNotDistinctFetchWhenDistinctParamIsSetToFalse() {
-        JoinFetch<Customer> spec = new JoinFetch<Customer>(queryCtx, new String[] { "orders" }, "o", JoinType.LEFT, false);
-    
-        List<Customer> customers = customerRepo.findAll(spec);
-        
-        assertThat(customers)
-                .hasSize(4)
-                .extracting(Customer::getFirstName)
-                .containsExactly("Homer", "Homer", "Marge", "Bart");
-    }
-    
     @Test
     public void performsDistinctFetchWhenDistinctParamIsSetToTrue() {
         JoinFetch<Customer> spec = new JoinFetch<Customer>(queryCtx, new String[] { "orders" }, "o", JoinType.LEFT, true);
@@ -362,6 +347,13 @@ public class JoinFetchTest extends IntegrationTestBase {
         EqualsVerifier.forClass(JoinFetch.class)
                 .usingGetClass()
                 .suppress(Warning.NONFINAL_FIELDS)
+                .verify();
+    }
+
+    @Test
+    public void toStringVerifier() {
+        ToStringVerifier.forClass(JoinFetch.class)
+                .withIgnoredFields("context", "alias", "distinct")
                 .verify();
     }
 

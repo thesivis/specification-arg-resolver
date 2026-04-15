@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,17 @@
  */
 package net.kaczmarzyk.spring.data.jpa.domain;
 
-import net.kaczmarzyk.spring.data.jpa.ComparableTestBase;
+import net.kaczmarzyk.spring.data.jpa.ComparableWithConverterTestBase;
 import net.kaczmarzyk.spring.data.jpa.Customer;
 import net.kaczmarzyk.spring.data.jpa.utils.Converter;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import nl.jqno.equalsverifier.Warning;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.data.jpa.domain.Specification;
+
+import java.text.ParseException;
+
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 
 /**
@@ -29,7 +33,7 @@ import org.springframework.data.jpa.domain.Specification;
  * 
  * @author TP Diffenbach
  */
-public class GreaterThanTest extends ComparableTestBase {
+public class GreaterThanTest extends ComparableWithConverterTestBase {
 	
 	@Override
     protected Specification<Customer> makeUUT(String path, String[] value, Converter converter) {
@@ -122,6 +126,18 @@ public class GreaterThanTest extends ComparableTestBase {
     	assertFilterContainsOnlyExpectedMembers("registrationDate", "01-03-2015", "dd-MM-yyyy",  moeSzyslak);
     	assertFilterIsEmpty("registrationDate", "02-03-2015", "dd-MM-yyyy");
     }
+
+	@Test
+	public void rejectsMissingArgument() throws ParseException {
+		assertThatThrownBy(() -> new GreaterThan<>(queryCtx, "path", new String[] {}, defaultConverter))
+				.isInstanceOf(IllegalArgumentException.class);;
+	}
+
+	@Test
+	public void rejectsTooManyArguments() throws ParseException {
+		assertThatThrownBy(() -> new GreaterThan<>(queryCtx, "path", new String[] { "2014-03-10", "2014-03-11", "2014-03-11" }, defaultConverter))
+				.isInstanceOf(IllegalArgumentException.class);;
+	}
 
 	@Test
 	public void equalsAndHashCodeContract() {

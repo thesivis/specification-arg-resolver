@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,22 +19,19 @@ import net.kaczmarzyk.spring.data.jpa.Customer;
 import net.kaczmarzyk.spring.data.jpa.domain.*;
 import net.kaczmarzyk.spring.data.jpa.domain.Conjunction;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.*;
-import net.kaczmarzyk.utils.ReflectionUtils;
 import org.assertj.core.api.Assertions;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.web.context.request.NativeWebRequest;
 
-import javax.persistence.criteria.JoinType;
-import java.util.Collection;
+import jakarta.persistence.criteria.JoinType;
 
-import static javax.persistence.criteria.JoinType.INNER;
-import static javax.persistence.criteria.JoinType.LEFT;
+import static jakarta.persistence.criteria.JoinType.INNER;
+import static jakarta.persistence.criteria.JoinType.LEFT;
 import static net.kaczmarzyk.spring.data.jpa.web.utils.NativeWebRequestBuilder.nativeWebRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * Test cases:
@@ -46,10 +43,8 @@ import static org.mockito.Mockito.when;
 public class AnnotatedJoinsSpecInterfaceArgumentResolverTest extends AnnotatedSpecInterfaceTestBase {
 
 	// TC-1. interface with @Joins spec
-	@Joins({
-			@net.kaczmarzyk.spring.data.jpa.web.annotation.Join(path = "orders", alias = "o"),
-			@net.kaczmarzyk.spring.data.jpa.web.annotation.Join(path = "orders2", alias = "o2", type = LEFT)
-	})
+			@net.kaczmarzyk.spring.data.jpa.web.annotation.Join(path = "orders", alias = "o", type = INNER)
+			@net.kaczmarzyk.spring.data.jpa.web.annotation.Join(path = "orders2", alias = "o2")
 	@Spec(path = "o.itemName", params = "itemName", spec = Equal.class)
 	private interface OrderedItemNameFilter<T> extends Specification<T> {
 	}
@@ -61,9 +56,7 @@ public class AnnotatedJoinsSpecInterfaceArgumentResolverTest extends AnnotatedSp
 	private interface LastNameGenderFilterExtendedByOrderedItemNameFilter extends OrderedItemNameFilter<Customer> {
 	}
 
-	@Joins({
-			@net.kaczmarzyk.spring.data.jpa.web.annotation.Join(path = "badges", alias = "b")
-	})
+	@net.kaczmarzyk.spring.data.jpa.web.annotation.Join(path = "badges", alias = "b", type = INNER)
 	@Spec(path = "b.badgeType", params = "badgeType", spec = Equal.class)
 	private interface BadgeFilter extends Specification<Customer> {
 	}
@@ -102,7 +95,7 @@ public class AnnotatedJoinsSpecInterfaceArgumentResolverTest extends AnnotatedSp
 		assertThat(resolved)
 				.isInstanceOf(OrderedItemNameFilter.class);
 
-		assertThat(innerSpecs(resolved))
+		assertThat(proxiedInnerSpecs(resolved))
 				.hasSize(2)
 				.containsExactlyInAnyOrder(
 						new Conjunction<>(
@@ -134,10 +127,10 @@ public class AnnotatedJoinsSpecInterfaceArgumentResolverTest extends AnnotatedSp
 		assertThat(resolved)
 				.isInstanceOf(SpecExtendedByTwoOtherInterfacesWithJoinsFilter.class);
 
-		Assertions.assertThat(innerSpecs(resolved))
+		Assertions.assertThat(proxiedInnerSpecs(resolved))
 				.hasSize(6)
 				.containsOnly(
-						new Conjunction<>(new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "badges", "b", JoinType.INNER, true)),
+						new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "badges", "b", JoinType.INNER, true),
 						new EmptyResultOnTypeMismatch<>(equal(ctx, "b.badgeType", "Beef Eater")),
 						new Conjunction<>(
 								new EmptyResultOnTypeMismatch<>(in(ctx, "gender", "MALE")),
