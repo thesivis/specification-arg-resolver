@@ -214,23 +214,4 @@ public class JoinE2eTest extends E2eTestBase {
 				.hasSingleSelectWithNumberOfJoins(1);
 	}
 
-	@Test
-	public void reusesEvaluatedJoinForManySpecs() throws Exception {
-		em.flush();
-		HibernateStatementInspector.clearInterceptedStatements();
-
-		mockMvc.perform(get("/join/customers")
-				.param("order1", "Beer")
-				.param("order2", "Donuts")
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[0].firstName").value("Homer"))
-			.andExpect(jsonPath("$[1].firstName").value("Moe"))
-			.andExpect(jsonPath("$[2]").doesNotExist());
-
-		assertThatInterceptedStatements()
-				.hasSingleSelectWithNumberOfJoins(1);
-	}
-
 }

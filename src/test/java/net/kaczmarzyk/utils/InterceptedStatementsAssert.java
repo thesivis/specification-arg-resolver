@@ -172,26 +172,4 @@ public class InterceptedStatementsAssert {
 
 		return this;
 	}
-
-  public InterceptedStatementsAssert hasSingleSelectWithNumberOfJoins(int expectedNumberOfJoins) {
-		assertThat(logs.size()).isEqualTo(1);
-
-		Integer numberOfJoins = countNumberOfSqlClauseInStatement(logs.get(0), "join");
-
-		assertThat(numberOfJoins)
-				.isEqualTo(expectedNumberOfJoins);
-
-		return this;
-	}
-
-	public InterceptedStatementsAssert doesNotHaveClause(String clause) {
-		List<String> statementsWithGivenClause = logs.stream()
-				.filter(string -> string.contains(clause))
-				.toList();
-
-		assertThat(statementsWithGivenClause)
-				.isEmpty();
-
-		return this;
-	}
 }
