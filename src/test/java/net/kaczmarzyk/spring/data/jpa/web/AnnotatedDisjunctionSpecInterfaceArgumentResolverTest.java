@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import net.kaczmarzyk.spring.data.jpa.domain.*;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.And;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.Spec;
 import org.assertj.core.api.Assertions;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.web.context.request.NativeWebRequest;
@@ -126,19 +126,19 @@ public class AnnotatedDisjunctionSpecInterfaceArgumentResolverTest extends Annot
 		assertThat(resolved)
 				.isInstanceOf(SpecExtendedByTwoOtherDisjunctionFilters.class);
 
-		Collection<Specification<Object>> innerSpecs = innerSpecs(resolved);
+		Collection<Specification<Object>> innerSpecs = proxiedInnerSpecs(resolved);
 
 		Assertions.assertThat(innerSpecs)
 				.hasSize(3)
 				.containsOnly(
-						new Disjunction<>(
+						new Disjunction<Object>(
 								new Conjunction<>(
 										new EmptyResultOnTypeMismatch<>(equal(ctx, "gender", "MALE")),
 										new EmptyResultOnTypeMismatch<>(equal(ctx, "lastName","Simpson"))
 								),
 								new EmptyResultOnTypeMismatch<>(in(ctx,"registrationDate", "2014-03-25", "2014-03-20"))
 						),
-						new Disjunction<>(new Conjunction<>(new EmptyResultOnTypeMismatch<>(equal(ctx, "firstName", "Homer")))),
+						new Disjunction<Object>(new Conjunction<>(new EmptyResultOnTypeMismatch<>(equal(ctx, "firstName", "Homer")))),
 						new Like<>(ctx.queryContext(), "nickName", "Hom")
 				);
 	}

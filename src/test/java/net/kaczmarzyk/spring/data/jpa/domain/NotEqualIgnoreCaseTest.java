@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,23 @@
  */
 package net.kaczmarzyk.spring.data.jpa.domain;
 
+import com.jparams.verifier.tostring.ToStringVerifier;
 import net.kaczmarzyk.spring.data.jpa.Customer;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import nl.jqno.equalsverifier.Warning;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import java.util.Locale;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * @author Mateusz Fedkowicz
  **/
 public class NotEqualIgnoreCaseTest extends NotEqualTest {
+
+	private static final String INVALID_PARAMETER_ARRAY_SIZE_EXCEPTION_MESSAGE = "Invalid size of 'httpParamValues' array, Expected 1 but was ";
 
 	@Test
 	public void filtersByStringCaseInsensitive() {
@@ -43,6 +51,52 @@ public class NotEqualIgnoreCaseTest extends NotEqualTest {
 		assertFilterMembers(notFemale, homerSimpson);
 	}
 
+
+	@Test
+	public void filtersByCharPrimitiveCaseInsensitive() {
+		NotEqualIgnoreCase<Customer> notFemale = new NotEqualIgnoreCase<>(queryCtx, "genderAsChar", new String[] { "f" }, defaultConverter);
+		assertFilterMembers(notFemale, homerSimpson, joeQuimby);
+
+		NotEqualIgnoreCase<Customer> notMale = new NotEqualIgnoreCase<>(queryCtx, "genderAsChar", new String[] { "m" }, defaultConverter);
+		assertFilterMembers(notMale, margeSimpson, joeQuimby);
+	}
+
+	@Test
+	public void filtersByCharacterCaseInsensitive() {
+		NotEqualIgnoreCase<Customer> notFemale = new NotEqualIgnoreCase<>(queryCtx, "genderAsCharacter", new String[] { "f" }, defaultConverter);
+		assertFilterMembers(notFemale, homerSimpson);
+
+		NotEqualIgnoreCase<Customer> notMale = new NotEqualIgnoreCase<>(queryCtx, "genderAsCharacter", new String[] { "m" }, defaultConverter);
+		assertFilterMembers(notMale, margeSimpson);
+	}
+
+	@Test
+	public void rejectsNullArgumentArray() {
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> new NotEqualIgnoreCase<>(queryCtx, "path", null, defaultConverter));
+
+		assertThat(exception.getMessage())
+				.isEqualTo(INVALID_PARAMETER_ARRAY_SIZE_EXCEPTION_MESSAGE + "null");
+	}
+
+	@Test
+	public void rejectsMissingArguments() {
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> new NotEqualIgnoreCase<>(queryCtx, "path", new String[] {}, defaultConverter));
+
+		assertThat(exception.getMessage())
+				.isEqualTo(INVALID_PARAMETER_ARRAY_SIZE_EXCEPTION_MESSAGE + "[]");
+	}
+
+	@Test
+	public void rejectsTooManyArguments() {
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> new NotEqualIgnoreCase<>(queryCtx, "path", new String[] {"2014-03-10", "2014-03-11"}, defaultConverter));
+
+		assertThat(exception.getMessage())
+				.isEqualTo(INVALID_PARAMETER_ARRAY_SIZE_EXCEPTION_MESSAGE + "[2014-03-10, 2014-03-11]");
+	}
+
 	@Test
 	public void equalsAndHashCodeContract() {
 		EqualsVerifier.forClass(NotEqualIgnoreCase.class)
@@ -51,8 +105,16 @@ public class NotEqualIgnoreCaseTest extends NotEqualTest {
 				.verify();
 	}
 
+	@Test
+	public void toStringVerifier() {
+		ToStringVerifier.forClass(NotEqualIgnoreCase.class)
+				.withIgnoredFields("queryContext")
+				.verify();
+	}
+
 	private <T> NotEqualIgnoreCase<T> notEqualIgnoreCaseSpec(String path, Object expectedValue) {
-		return new NotEqualIgnoreCase<>(queryCtx, path, new String[]{expectedValue.toString()}, defaultConverter);
+		NotEqualIgnoreCase<T> spec = new NotEqualIgnoreCase<>(queryCtx, path, new String[]{expectedValue.toString()}, defaultConverter);
+		return spec;
 	}
 
 }

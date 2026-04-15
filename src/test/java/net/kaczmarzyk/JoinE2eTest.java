@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@ import net.kaczmarzyk.spring.data.jpa.domain.In;
 import net.kaczmarzyk.spring.data.jpa.domain.Like;
 import net.kaczmarzyk.spring.data.jpa.domain.LikeIgnoreCase;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.*;
-import net.kaczmarzyk.utils.interceptor.HibernateStatementInterceptor;
-import static net.kaczmarzyk.utils.interceptor.InterceptedStatementsAssert.assertThatInterceptedStatements;
-import org.junit.Test;
+import net.kaczmarzyk.utils.interceptor.HibernateStatementInspector;
+import static net.kaczmarzyk.utils.InterceptedStatementsAssert.assertThatInterceptedStatements;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -92,10 +92,8 @@ public class JoinE2eTest extends E2eTestBase {
 		@ResponseBody
 		public Object findByOrdersAndBadges(
 
-				@Joins({
-						@Join(path = "orders", alias = "o"),
-						@Join(path = "badges", alias = "b")
-				})
+				@Join(path = "orders", alias = "o")
+				@Join(path = "badges", alias = "b")
 				@Or({
 						@Spec(path = "o.itemName", params = "order", spec = Like.class),
 						@Spec(path = "b.badgeType", params = "badge", spec = Equal.class)
@@ -196,21 +194,21 @@ public class JoinE2eTest extends E2eTestBase {
 			.andExpect(jsonPath("$.totalElements").value(2))
 			.andExpect(jsonPath("$.size").value(1));
 	}
-  
-  @Test
+
+	@Test
 	public void reusesEvaluatedJoinForManySpecs() throws Exception {
 		em.flush();
-		HibernateStatementInterceptor.clearInterceptedStatements();
+		HibernateStatementInspector.clearInterceptedStatements();
 
 		mockMvc.perform(get("/join/customers")
-                .param("order1", "Beer")
-                .param("order2", "Donuts")
-                .accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$").isArray())
-            .andExpect(jsonPath("$[0].firstName").value("Homer"))
-            .andExpect(jsonPath("$[1].firstName").value("Moe"))
-            .andExpect(jsonPath("$[2]").doesNotExist());
+				.param("order1", "Beer")
+				.param("order2", "Donuts")
+				.accept(MediaType.APPLICATION_JSON))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$").isArray())
+			.andExpect(jsonPath("$[0].firstName").value("Homer"))
+			.andExpect(jsonPath("$[1].firstName").value("Moe"))
+			.andExpect(jsonPath("$[2]").doesNotExist());
 
 		assertThatInterceptedStatements()
 				.hasSingleSelectWithNumberOfJoins(1);

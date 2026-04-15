@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,12 @@ import net.kaczmarzyk.spring.data.jpa.domain.Equal;
 import net.kaczmarzyk.spring.data.jpa.domain.JoinFetch;
 import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.Spec;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.web.context.request.NativeWebRequest;
 
-import static javax.persistence.criteria.JoinType.*;
+import static jakarta.persistence.criteria.JoinType.*;
 import static net.kaczmarzyk.spring.data.jpa.web.utils.NativeWebRequestBuilder.nativeWebRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 /**
@@ -92,11 +92,11 @@ public class AnnotatedRepeatedJoinFetchSpecInterfaceArgumentResolverTest extends
 		MethodParameter param = methodParameter("annotatedInterface", OrderedItemNameBadgeFilter.class);
 
 		NativeWebRequest req = nativeWebRequest().build();
-		QueryContext queryCtx = new WebRequestQueryContext(req);
+		QueryContext queryCtx = new DefaultQueryContext();
 
 		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
-		assertThat(innerSpecs(resolved))
+		assertThat(proxiedInnerSpecs(resolved))
 				.hasSize(2)
 				.containsExactlyInAnyOrder(
 						new JoinFetch<>(queryCtx, new String[]{ "orders" }, LEFT, true),
@@ -116,11 +116,11 @@ public class AnnotatedRepeatedJoinFetchSpecInterfaceArgumentResolverTest extends
 				.build();
 
 		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
-		QueryContext queryCtx = new WebRequestQueryContext(req);
+		QueryContext queryCtx = new DefaultQueryContext();
 
 		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
-		assertThat(innerSpecs(resolved))
+		assertThat(proxiedInnerSpecs(resolved))
 				.hasSize(3)
 				.containsExactlyInAnyOrder(
 						new Conjunction<>(
@@ -142,11 +142,11 @@ public class AnnotatedRepeatedJoinFetchSpecInterfaceArgumentResolverTest extends
 		NativeWebRequest req = nativeWebRequest()
 				.withParameterValues("itemName", "Duff Beer")
 				.build();
-		QueryContext queryCtx = new WebRequestQueryContext(req);
+		QueryContext queryCtx = new DefaultQueryContext();
 
 		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
-		assertThat(innerSpecs(resolved))
+		assertThat(proxiedInnerSpecs(resolved))
 				.hasSize(2)
 				.containsExactlyInAnyOrder(
 						new Conjunction<>(

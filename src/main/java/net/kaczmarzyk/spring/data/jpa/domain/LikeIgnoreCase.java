@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,22 +15,24 @@
  */
 package net.kaczmarzyk.spring.data.jpa.domain;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
-
+import jakarta.persistence.criteria.*;
+import net.kaczmarzyk.spring.data.jpa.utils.CaseConversionHelper;
 import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
+
+import java.util.Locale;
 
 /**
  * Filters with {@code path like %pattern%} where-clause and ignores pattern case
  * 
  * @author Michal Jankowski, Hazecod
+ * @author Tomasz Kaczmarzyk
  *
  */
-public class LikeIgnoreCase<T> extends Like<T> {
+public class LikeIgnoreCase<T> extends Like<T> implements IgnoreCaseStrategyAware, LocaleAware {
 
 	private static final long serialVersionUID = 1L;
+	private IgnoreCaseStrategy ignoreCaseStrategy;
+	private Locale locale;
 
 	public LikeIgnoreCase(QueryContext queryCtx, String path, String... args) {
         super(queryCtx, path, args);
@@ -38,7 +40,63 @@ public class LikeIgnoreCase<T> extends Like<T> {
 	
     @Override
     public Predicate toPredicate(Root<T> root, CriteriaQuery<?> query, CriteriaBuilder builder) {
-        return builder.like(builder.upper(this.<String> path(root)), pattern.toUpperCase());
+        var converted = CaseConversionHelper.applyCaseConversion(
+            builder, 
+            this.<String>path(root), 
+            pattern, 
+            ignoreCaseStrategy,
+            locale
+        );
+        return builder.like(converted.column(), converted.value());
+    }
+    
+    @Override
+    public void setIgnoreCaseStrategy(IgnoreCaseStrategy ignoreCaseStrategy) {
+        this.ignoreCaseStrategy = ignoreCaseStrategy;
+    }
+    
+    @Override
+    @Deprecated
+    public void setLocale(Locale locale) {
+        this.locale = locale;
     }
 
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = super.hashCode();
+		result = prime * result + ((ignoreCaseStrategy == null) ? 0 : ignoreCaseStrategy.hashCode());
+		result = prime * result + ((locale == null) ? 0 : locale.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (!super.equals(obj)) {
+			return false;
+		}
+		if (getClass() != obj.getClass()) {
+			return false;
+		}
+		LikeIgnoreCase<?> other = (LikeIgnoreCase<?>) obj;
+		if (ignoreCaseStrategy != other.ignoreCaseStrategy) {
+			return false;
+		}
+		if (locale == null) {
+			if (other.locale != null) {
+				return false;
+			}
+		} else if (!locale.equals(other.locale)) {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public String toString() {
+		return "LikeIgnoreCase [pattern=" + pattern + ", path=" + path + ", ignoreCaseStrategy=" + ignoreCaseStrategy + ", locale=" + locale + "]";
+	}
 }

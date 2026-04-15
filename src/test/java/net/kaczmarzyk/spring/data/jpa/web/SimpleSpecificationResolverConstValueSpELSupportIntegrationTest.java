@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,12 @@ package net.kaczmarzyk.spring.data.jpa.web;
 import net.kaczmarzyk.spring.data.jpa.IntegrationTestBaseWithSARConfiguredWithApplicationContext;
 import net.kaczmarzyk.spring.data.jpa.domain.EmptyResultOnTypeMismatch;
 import net.kaczmarzyk.spring.data.jpa.domain.Equal;
+import net.kaczmarzyk.spring.data.jpa.domain.IgnoreCaseStrategy;
 import net.kaczmarzyk.spring.data.jpa.utils.Converter;
 import net.kaczmarzyk.spring.data.jpa.utils.ThrowableAssertions;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.Spec;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.core.MethodParameter;
@@ -33,21 +34,23 @@ import static net.kaczmarzyk.spring.data.jpa.web.annotation.OnTypeMismatch.EMPTY
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import java.util.Locale;
+
 /**
  * @author Jakub Radlica
  */
 public class SimpleSpecificationResolverConstValueSpELSupportIntegrationTest extends IntegrationTestBaseWithSARConfiguredWithApplicationContext {
 	
-	private Converter defaultConverter = Converter.withTypeMismatchBehaviour(EMPTY_RESULT, null);
+	private Converter defaultConverter = Converter.withTypeMismatchBehaviour(EMPTY_RESULT, null, Locale.getDefault());
 	
 	@Autowired
 	AbstractApplicationContext abstractApplicationContext;
 	
 	SimpleSpecificationResolver resolver;
 	
-	@Before
+	@BeforeEach
 	public void initializeResolver() {
-		this.resolver = new SimpleSpecificationResolver(null, abstractApplicationContext);
+		this.resolver = new SimpleSpecificationResolver(null, abstractApplicationContext, Locale.getDefault(), IgnoreCaseStrategy.DATABASE_UPPER);
 	}
 	
 	@Test

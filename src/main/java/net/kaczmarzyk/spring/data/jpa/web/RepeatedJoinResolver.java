@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ public class RepeatedJoinResolver implements SpecificationResolver<RepeatedJoin>
 	}
 
 	@Override
-	public Specification<Object> buildSpecification(WebRequestProcessingContext context, RepeatedJoin def) {
+	public Specification<Object> buildSpecification(ProcessingContext context, RepeatedJoin def) {
 		Collection<Specification<Object>> joins = new ArrayList<>();
 
 		for (Join joinDef : def.value()) {

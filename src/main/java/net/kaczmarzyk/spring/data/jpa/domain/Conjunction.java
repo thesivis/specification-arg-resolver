@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ package net.kaczmarzyk.spring.data.jpa.domain;
 
 import org.springframework.data.jpa.domain.Specification;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import java.util.*;
 
 import static java.util.stream.Collectors.toList;
@@ -88,27 +88,22 @@ public class Conjunction<T> implements Specification<T>, FakeSpecWrapper<T> {
 
 	@Override
 	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((innerSpecs == null) ? 0 : innerSpecs.hashCode());
-		return result;
+		return Objects.hash(innerSpecs);
 	}
 
 	@Override
 	public boolean equals(Object obj) {
-		if (this == obj)
+		if (this == obj) {
 			return true;
-		if (obj == null)
+		}
+		if (obj == null) {
 			return false;
-		if (getClass() != obj.getClass())
+		}
+		if (getClass() != obj.getClass()) {
 			return false;
-		Conjunction<?> other = (Conjunction<?>) obj;
-		if (innerSpecs == null) {
-			if (other.innerSpecs != null)
-				return false;
-		} else if (!innerSpecs.equals(other.innerSpecs))
-			return false;
-		return true;
+		}
+		Conjunction other = (Conjunction) obj;
+		return Objects.equals(innerSpecs, other.innerSpecs);
 	}
 
 	@Override

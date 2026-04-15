@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
  */
 package net.kaczmarzyk.spring.data.jpa.web;
 
-import net.kaczmarzyk.spring.data.jpa.domain.ZeroArgSpecification;
+import net.kaczmarzyk.spring.data.jpa.domain.*;
 import net.kaczmarzyk.spring.data.jpa.utils.Converter;
 import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.Spec;
+import org.apache.commons.lang3.LocaleUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.EmbeddedValueResolver;
@@ -30,29 +31,35 @@ import org.springframework.expression.ParseException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Locale;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static java.util.Arrays.asList;
-
+import static java.util.stream.Collectors.toList;
 
 /**
  * @author Tomasz Kaczmarzyk
  * @author Jakub Radlica
  */
 class SimpleSpecificationResolver implements SpecificationResolver<Spec> {
-
+	
 	private final ConversionService conversionService;
 	private final EmbeddedValueResolver embeddedValueResolver;
-
-	public SimpleSpecificationResolver(ConversionService conversionService, AbstractApplicationContext applicationContext) {
+	private final Locale defaultLocale;
+	private final IgnoreCaseStrategy defaultIgnoreCaseStrategy;
+	
+	public SimpleSpecificationResolver(ConversionService conversionService, AbstractApplicationContext applicationContext, Locale defaultLocale, IgnoreCaseStrategy ignoreCaseStrategy) {
 		this.conversionService = conversionService;
 		this.embeddedValueResolver = applicationContext != null ? new EmbeddedValueResolver(applicationContext.getBeanFactory()) : null;
+		this.defaultLocale = defaultLocale;
+		this.defaultIgnoreCaseStrategy = ignoreCaseStrategy;
 	}
 	
 	public SimpleSpecificationResolver() {
-		this.conversionService = null;
-		this.embeddedValueResolver = null;
+		this(null, null, Locale.getDefault(), IgnoreCaseStrategy.DATABASE_UPPER);
 	}
 	
 	@Override
@@ -60,18 +67,18 @@ class SimpleSpecificationResolver implements SpecificationResolver<Spec> {
 		return Spec.class;
 	}
 	
-	public Specification<Object> buildSpecification(WebRequestProcessingContext context, Spec def) {
+	public Specification<Object> buildSpecification(ProcessingContext context, Spec def) {
 		try {
 			Collection<String> args = resolveSpecArguments(context, def);
 			if (args.isEmpty() && !isZeroArgSpec(def)) {
-				return null;
+				return Specification.unrestricted();
 			} else {
-				String[] argsArray = args.toArray(new String[args.size()]);
+				String[] argsArray = args.toArray(new String[0]);
 				Specification<Object> spec = newSpecification(def, argsArray, context);
 				return def.onTypeMismatch().wrap(spec);
 			}
 		} catch (NoSuchMethodException e) {
-			throw new IllegalStateException("Does the specification class expose at least one of the supported constuctors?\n"
+			throw new IllegalStateException("Does the specification class expose at least one of the supported constructors?\n"
 					+ "It can be either:\n"
 					+ "  3-arg (QueryContext queryCtx, String path, String[] args)\n"
 					+ "  4-arg (QueryContext queryCtx, String path, String[] args, Converter converter)\n"
@@ -88,7 +95,7 @@ class SimpleSpecificationResolver implements SpecificationResolver<Spec> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	private Specification<Object> newSpecification(Spec def, String[] argsArray, WebRequestProcessingContext context) throws InstantiationException, IllegalAccessException,
+	private Specification<Object> newSpecification(Spec def, String[] argsArray, ProcessingContext context) throws InstantiationException, IllegalAccessException,
 			InvocationTargetException, NoSuchMethodException {
 		
 		QueryContext queryCtx = context.queryContext();
@@ -118,32 +125,60 @@ class SimpleSpecificationResolver implements SpecificationResolver<Spec> {
 				}
 			}
 		}
+		
+		if (spec instanceof IgnoreCaseStrategyAware && defaultIgnoreCaseStrategy != null) {
+			((IgnoreCaseStrategyAware) spec).setIgnoreCaseStrategy(defaultIgnoreCaseStrategy);
+		}
+		
+		// Set Locale for backward compatibility
+		if (spec instanceof LocaleAware) {
+			Locale targetLocale = determineLocale(def);
+			((LocaleAware) spec).setLocale(targetLocale);
+		}
+		
 		return spec;
+	}
+	
+	private Locale determineLocale(Spec def) {
+		if (def.config().length == 0) {
+			return defaultLocale;
+		} else {
+			return LocaleUtils.toLocale(def.config()[0]);
+		}
 	}
 	
 	private Converter resolveConverter(Spec def) {
 		if (def.config().length == 0) {
-			return Converter.withTypeMismatchBehaviour(def.onTypeMismatch(), conversionService);
+			return Converter.withTypeMismatchBehaviour(def.onTypeMismatch(), conversionService, defaultLocale);
 		}
 		if (def.config().length == 1) {
-			String dateFormat = def.config()[0];
-			return Converter.withDateFormat(dateFormat, def.onTypeMismatch(), conversionService);
+			if (LocaleAware.class.isAssignableFrom(def.spec())) { // if specification is locale-aware, then we assume that config contains locale
+				String localeConfig = def.config()[0];
+				Locale customlocale = LocaleUtils.toLocale(localeConfig);
+				return Converter.withTypeMismatchBehaviour(def.onTypeMismatch(), conversionService, customlocale);
+			} else { // otherwise we assume that config contains date format
+				String dateFormat = def.config()[0];
+				return Converter.withDateFormat(dateFormat, def.onTypeMismatch(), conversionService);
+			}
 		}
 		throw new IllegalStateException("config should contain only one value -- a date format"); // TODO support other config values as well
 	}
 	
-	private Collection<String> resolveSpecArguments(WebRequestProcessingContext context, Spec specDef) {
+	
+	private Collection<String> resolveSpecArguments(ProcessingContext context, Spec specDef) {
 		if (specDef.constVal().length != 0) {
 			return resolveConstVal(specDef);
 		} else if (specDef.pathVars().length != 0) {
 			return resolveSpecArgumentsFromPathVariables(context, specDef);
+		} else if (specDef.jsonPaths().length != 0) {
+			return resolveSpecArgumentsFromBody(context, specDef);
 		} else if (specDef.headers().length != 0) {
 			return resolveSpecArgumentsFromRequestHeaders(context, specDef);
 		} else {
 			return resolveDefaultVal(context, specDef);
 		}
 	}
-
+	
 	private Collection<String> resolveConstVal(Spec specDef) {
 		if (embeddedValueResolver != null && specDef.valueInSpEL()) {
 			ArrayList<String> evaluatedArgs = new ArrayList<>(specDef.constVal().length);
@@ -155,8 +190,8 @@ class SimpleSpecificationResolver implements SpecificationResolver<Spec> {
 			return asList(specDef.constVal());
 		}
 	}
-
-	private Collection<String> resolveDefaultVal(WebRequestProcessingContext context, Spec specDef) {
+	
+	private Collection<String> resolveDefaultVal(ProcessingContext context, Spec specDef) {
 		Collection<String> resolved = resolveSpecArgumentsFromHttpParameters(context, specDef);
 		if (resolved.isEmpty() && specDef.defaultVal().length != 0) {
 			if (embeddedValueResolver != null && specDef.valueInSpEL()) {
@@ -169,28 +204,37 @@ class SimpleSpecificationResolver implements SpecificationResolver<Spec> {
 		}
 		return resolved;
 	}
-
+	
 	private String evaluateRawSpELValue(String rawSpELValue) {
 		try {
 			return embeddedValueResolver.resolveStringValue(rawSpELValue);
-		} catch (BeansException|ParseException e) {
-			throw new IllegalArgumentException("Invalid SpEL expression: '" + rawSpELValue + "'");
+		} catch (BeansException | ParseException e) {
+			throw new IllegalArgumentException("Invalid SpEL expression: '" + rawSpELValue + "'", e);
 		}
 	}
 	
-	private Collection<String> resolveSpecArgumentsFromPathVariables(WebRequestProcessingContext context, Spec specDef) {
+	private Collection<String> resolveSpecArgumentsFromPathVariables(ProcessingContext context, Spec specDef) {
 		Collection<String> args = new ArrayList<>();
 		for (String pathVar : specDef.pathVars()) {
-			args.add(context.getPathVariableValue(pathVar));
+			String pathVariableValue = context.getPathVariableValue(pathVar, specDef.missingPathVarPolicy());
+			if (pathVariableValue != null) {
+				args.add(pathVariableValue);
+			}
 		}
 		return args;
 	}
-
-	private Collection<String> resolveSpecArgumentsFromRequestHeaders(WebRequestProcessingContext context, Spec specDef) {
+	
+	private Collection<String> resolveSpecArgumentsFromBody(ProcessingContext context, Spec specDef) {
+		return Arrays.stream(specDef.jsonPaths())
+				.flatMap(param -> nullSafeArrayStream(context.getBodyParamValues(param)))
+				.collect(toList());
+	}
+	
+	private Collection<String> resolveSpecArgumentsFromRequestHeaders(ProcessingContext context, Spec specDef) {
 		Collection<String> args = new ArrayList<>();
 		for (String headerKey : specDef.headers()) {
 			String headerValue = context.getRequestHeaderValue(headerKey);
-			boolean isHeaderValueEmpty = headerValue == null || headerValue == "";
+			boolean isHeaderValueEmpty = headerValue == null || "".equals(headerValue);
 			if (!isHeaderValueEmpty) {
 				args.add(headerValue);
 			}
@@ -198,7 +242,7 @@ class SimpleSpecificationResolver implements SpecificationResolver<Spec> {
 		return args;
 	}
 	
-	private Collection<String> resolveSpecArgumentsFromHttpParameters(WebRequestProcessingContext context, Spec specDef) {
+	private Collection<String> resolveSpecArgumentsFromHttpParameters(ProcessingContext context, Spec specDef) {
 		Collection<String> args = new ArrayList<String>();
 		
 		DelimitationStrategy delimitationStrategy = DelimitationStrategy.of(specDef.paramSeparator());
@@ -209,14 +253,14 @@ class SimpleSpecificationResolver implements SpecificationResolver<Spec> {
 					webParamName = embeddedValueResolver.resolveStringValue(webParamName);
 				}
 				String[] parameterValues = context.getParameterValues(webParamName);
-				if(parameterValues != null) {
+				if (parameterValues != null) {
 					String[] httpParamValues = delimitationStrategy.extractSingularValues(parameterValues);
 					addValuesToArgs(httpParamValues, args);
 				}
 			}
 		} else {
 			String[] parameterValues = context.getParameterValues(specDef.path());
-			if(parameterValues != null) {
+			if (parameterValues != null) {
 				String[] httpParamValues = delimitationStrategy.extractSingularValues(parameterValues);
 				addValuesToArgs(httpParamValues, args);
 			}
@@ -233,6 +277,10 @@ class SimpleSpecificationResolver implements SpecificationResolver<Spec> {
 				}
 			}
 		}
+	}
+	
+	private Stream<String> nullSafeArrayStream(String[] array) {
+		return array != null ? Stream.of(array) : Stream.empty();
 	}
 	
 	private static class DelimitationStrategy {

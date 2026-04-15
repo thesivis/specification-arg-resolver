@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,24 +16,25 @@
 package net.kaczmarzyk.spring.data.jpa.utils;
 
 import net.kaczmarzyk.spring.data.jpa.domain.*;
-import net.kaczmarzyk.spring.data.jpa.web.WebRequestQueryContext;
+import net.kaczmarzyk.spring.data.jpa.web.DefaultQueryContext;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.OnTypeMismatch;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.lang.reflect.Constructor;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Objects.isNull;
-import static net.kaczmarzyk.spring.data.jpa.web.utils.NativeWebRequestBuilder.nativeWebRequest;
 
 public class SimpleSpecificationGenerator {
 
-	public static List<Class<? extends PathSpecification>> LIST_OF_SIMPLE_SPECIFICATION_TYPES = Stream.of(Between.class, DateAfter.class, DateAfterInclusive.class, DateBefore.class,
-			DateBetween.class, EndingWith.class, EndingWithIgnoreCase.class, Equal.class, EqualEnum.class,
+	public static List<Class<? extends PathSpecification>> LIST_OF_SIMPLE_SPECIFICATION_TYPES = Stream.of(Between.class,
+			EndingWith.class, EndingWithIgnoreCase.class, Equal.class,
 			EqualIgnoreCase.class, GreaterThan.class, GreaterThanOrEqual.class, In.class, IsNull.class,
 			LessThan.class, LessThanOrEqual.class, Like.class, LikeIgnoreCase.class, NotEqual.class,
 			NotEqualIgnoreCase.class, NotIn.class, NotLike.class, NotNull.class, Null.class,
@@ -45,9 +46,10 @@ public class SimpleSpecificationGenerator {
 	public static final Integer SEED_1 = 1;
 	public static final Integer SEED_2 = 2;
 
-	private static Converter defaultConverter = Converter.withTypeMismatchBehaviour(OnTypeMismatch.EMPTY_RESULT, null);
-	private static WebRequestQueryContext queryCtx = new WebRequestQueryContext(nativeWebRequest().build());
+	private static Converter defaultConverter = Converter.withTypeMismatchBehaviour(OnTypeMismatch.EMPTY_RESULT, null, Locale.getDefault());
+	private static DefaultQueryContext queryCtx = new DefaultQueryContext();
 
+	private static String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
 	private static LocalDateTime GENERATOR_LOCAL_BASE_DATE_TIME = LocalDateTime.now();
 
 	/**
@@ -102,9 +104,13 @@ public class SimpleSpecificationGenerator {
 	private static String[] getArgs(Integer argsNumber, Integer seed) {
 		String[] args = new String[argsNumber];
 		for (int i = 0; i < argsNumber; i++) {
-			args[i] = GENERATOR_LOCAL_BASE_DATE_TIME.plusSeconds(seed).toString();
+			args[i] = formatLocalDateTime(GENERATOR_LOCAL_BASE_DATE_TIME.plusDays(seed), DEFAULT_DATE_FORMAT);
 		}
 		return args;
 	}
 
+	private static String formatLocalDateTime(LocalDateTime date, String dateFormatPattern) {
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern(dateFormatPattern);
+		return date.format(formatter);
+	}
 }

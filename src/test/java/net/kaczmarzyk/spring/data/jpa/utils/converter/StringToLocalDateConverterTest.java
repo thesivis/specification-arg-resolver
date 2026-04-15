@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 package net.kaczmarzyk.spring.data.jpa.utils.converter;
 
 import net.kaczmarzyk.spring.data.jpa.utils.Converter;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.util.Locale;
 
 import static net.kaczmarzyk.spring.data.jpa.utils.ThrowableAssertions.assertThrows;
 import static net.kaczmarzyk.spring.data.jpa.web.annotation.OnTypeMismatch.EMPTY_RESULT;
@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class StringToLocalDateConverterTest {
 	
-	Converter converterWithDefaultFormats = Converter.withTypeMismatchBehaviour(EMPTY_RESULT, null);
+	Converter converterWithDefaultFormats = Converter.withTypeMismatchBehaviour(EMPTY_RESULT, null, Locale.getDefault());
 	
 	@Test
 	public void convertsToLocalDateTimeUsingDefaultFormat() {
@@ -38,10 +38,19 @@ public class StringToLocalDateConverterTest {
 	}
 	
 	@Test
-	public void throwsValueRejectedExceptionForUnparseableLocalDateTime() {
+	public void throwsValueRejectedExceptionForUnparseableLocalDateTime_differentThanExpectedDateFormat() {
 		assertThrows(
 				Converter.ValueRejectedException.class,
-				() -> converterWithDefaultFormats.convert("2020-06-19-2020", LocalDate.class),
+				() -> converterWithDefaultFormats.convert("06-2020-19", LocalDate.class),
+				"LocalDate format exception, expected format: yyyy-MM-dd"
+		);
+	}
+
+	@Test
+	public void throwsValueRejectedExceptionForUnparseableLocalDateTime_unnecessaryAdditionalCharacters() {
+		assertThrows(
+				Converter.ValueRejectedException.class,
+				() -> converterWithDefaultFormats.convert("2020-06-19-invalid-format", LocalDate.class),
 				"LocalDate format exception, expected format: yyyy-MM-dd"
 		);
 	}
@@ -56,7 +65,7 @@ public class StringToLocalDateConverterTest {
 	}
 	
 	@Test
-	public void throwsValueRejectedExceptionForUnparseableLocalDateTimeAndCustomFormat() {
+	public void throwsValueRejectedExceptionForUnparseableLocalDateTimeAndCustomFormat_differentThanExpectedDateFormat() {
 		Converter converterWithCustomFormat = Converter.withDateFormat("MM-yyyy-dd", EMPTY_RESULT, null);
 		
 		assertThrows(
@@ -66,6 +75,16 @@ public class StringToLocalDateConverterTest {
 		);
 		
 	}
-	
+
+	@Test
+	public void throwsValueRejectedExceptionForUnparseableLocalDateTimeAndCustomFormat_unnecessaryAdditionalCharacters() {
+		Converter converterWithCustomFormat = Converter.withDateFormat("MM-yyyy-dd", EMPTY_RESULT, null);
+
+		assertThrows(
+				Converter.ValueRejectedException.class,
+				() -> converterWithCustomFormat.convert("06-2020-19-invalid-Format", LocalDate.class),
+				"LocalDate format exception, expected format: MM-yyyy-dd"
+		);
+	}
 	
 }

@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package net.kaczmarzyk.spring.data.jpa.domain;
 
+import com.jparams.verifier.tostring.ToStringVerifier;
 import net.kaczmarzyk.spring.data.jpa.Customer;
 import net.kaczmarzyk.spring.data.jpa.Gender;
 import net.kaczmarzyk.spring.data.jpa.IntegrationTestBase;
@@ -22,15 +23,14 @@ import net.kaczmarzyk.spring.data.jpa.utils.Converter;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.OnTypeMismatch;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import nl.jqno.equalsverifier.Warning;
-import org.hamcrest.CoreMatchers;
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.dao.InvalidDataAccessApiUsageException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static net.kaczmarzyk.spring.data.jpa.CustomerBuilder.customer;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 
 /**
@@ -39,12 +39,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class InTest extends IntegrationTestBase {
 
-    private Customer homerSimpson;
+	private static final String INVALID_PARAMETER_ARRAY_SIZE_EXCEPTION_MESSAGE = "Invalid size of 'httpParamValues' array, Expected at least 1 but was ";
+
+	private Customer homerSimpson;
     private Customer margeSimpson;
     private Customer moeSzyslak;
 	private Customer joeQuimby;
 
-    @Before
+    @BeforeEach
     public void initData() {
         homerSimpson = customer("Homer", "Simpson").gender(Gender.MALE).registrationDate(2015, 03, 01).weight(121).build(em);
         margeSimpson = customer("Marge", "Simpson").gender(Gender.FEMALE).registrationDate(2015, 03, 01).weight(55).build(em);
@@ -77,11 +79,11 @@ public class InTest extends IntegrationTestBase {
 
 //    @Test // TODO to be replaced with new tests...
     public void rejectsNotExistingEnumConstantName() {
-        In<Customer> genderRobot = new In<>(queryCtx, "gender", new String[] { "ROBOT" }, defaultConverter);
-        expectedException.expect(InvalidDataAccessApiUsageException.class);
-        expectedException.expectCause(CoreMatchers.<IllegalArgumentException> instanceOf(IllegalArgumentException.class));
-        expectedException.expectMessage("rejected values [ROBOT] for class Gender");
-        customerRepo.findAll(genderRobot);
+//        In<Customer> genderRobot = new In<>(queryCtx, "gender", new String[] { "ROBOT" }, defaultConverter);
+//        expectedException.expect(InvalidDataAccessApiUsageException.class);
+//        expectedException.expectCause(CoreMatchers.<IllegalArgumentException> instanceOf(IllegalArgumentException.class));
+//        expectedException.expectMessage("rejected values [ROBOT] for class Gender");
+//        customerRepo.findAll(genderRobot);
     }
     
     @Test
@@ -165,10 +167,35 @@ public class InTest extends IntegrationTestBase {
     }
 
 	@Test
+	public void rejectsNullArgumentArray() {
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> new In<>(queryCtx, "path", null, defaultConverter));
+
+		assertThat(exception.getMessage())
+				.isEqualTo(INVALID_PARAMETER_ARRAY_SIZE_EXCEPTION_MESSAGE + "null");
+	}
+
+	@Test
+	public void rejectsMissingArguments() {
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> new In<>(queryCtx, "path", new String[] {}, defaultConverter));
+
+		assertThat(exception.getMessage())
+				.isEqualTo(INVALID_PARAMETER_ARRAY_SIZE_EXCEPTION_MESSAGE + "[]");
+	}
+
+	@Test
 	public void equalsAndHashCodeContract() {
 		EqualsVerifier.forClass(In.class)
 				.usingGetClass()
 				.suppress(Warning.NONFINAL_FIELDS)
+				.verify();
+	}
+
+	@Test
+	public void toStringVerifier() {
+		ToStringVerifier.forClass(In.class)
+				.withIgnoredFields("queryContext")
 				.verify();
 	}
 }

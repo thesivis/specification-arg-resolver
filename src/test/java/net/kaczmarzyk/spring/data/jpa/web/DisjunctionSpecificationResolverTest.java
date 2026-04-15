@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import net.kaczmarzyk.spring.data.jpa.web.annotation.And;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.Disjunction;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.Or;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.Spec;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.web.context.request.NativeWebRequest;
@@ -94,7 +94,7 @@ public class DisjunctionSpecificationResolverTest extends ResolverTestBase {
     public void resolvesWrapperOfSimpleSpecsAndAnds() throws Exception {
         MethodParameter param = MethodParameter.forExecutable(testMethod("testMethod2"), 0);
         NativeWebRequest req = mock(NativeWebRequest.class);
-        QueryContext queryCtx = new WebRequestQueryContext(req);
+        QueryContext queryCtx = new DefaultQueryContext();
         when(req.getParameterValues("path1")).thenReturn(new String[] { "value1" });
         when(req.getParameterValues("path2")).thenReturn(new String[] { "value2" });
         when(req.getParameterValues("path3")).thenReturn(new String[] { "value3" });

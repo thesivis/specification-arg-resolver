@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ class JoinSpecificationResolver implements SpecificationResolver<Join> {
 	}
 
 	@Override
-	public Specification<Object> buildSpecification(WebRequestProcessingContext context, Join joinDef) {
+	public Specification<Object> buildSpecification(ProcessingContext context, Join joinDef) {
 		return new net.kaczmarzyk.spring.data.jpa.domain.Join<Object>(context.queryContext(), joinDef.path(), joinDef.alias(), joinDef.type(), joinDef.distinct());
 	}
 

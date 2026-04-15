@@ -1,5 +1,5 @@
-/**
- * Copyright 2014-2022 the original author or authors.
+/*
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,15 @@ import net.kaczmarzyk.spring.data.jpa.web.annotation.OnTypeMismatch;
 import org.springframework.core.convert.ConversionService;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
+import java.time.temporal.ChronoField;
 import java.util.*;
 import java.util.function.BiFunction;
 
@@ -37,44 +38,48 @@ import static java.util.Objects.nonNull;
  * @author Tomasz Kaczmarzyk
  */
 @SuppressWarnings("unchecked")
-public class Converter {
-	
+public final class Converter {
+
 	public static class ValuesRejectedException extends IllegalArgumentException {
-		
+
 		private static final long serialVersionUID = 1L;
-		
+
 		private Collection<String> rejectedValues;
-		
+
 		public ValuesRejectedException(Collection<String> rejectedValues, String message) {
 			super(message);
 			this.rejectedValues = rejectedValues;
 		}
-		
+
 		public Collection<String> getRejectedValues() {
 			return rejectedValues;
 		}
-		
+
 		@Override
 		public String toString() {
 			return this.getClass() + ": " + getMessage();
 		}
 	}
-	
+
 	public static class ValueRejectedException extends IllegalArgumentException {
-		
+
 		private static final long serialVersionUID = 1L;
-		
+
 		private String rejectedValue;
-		
+
 		public ValueRejectedException(String rejectedValue, String message) {
-			super(message);
+			this(rejectedValue, message, null);
+		}
+
+		public ValueRejectedException(String rejectedValue, String message, Exception cause) {
+			super(message, cause);
 			this.rejectedValue = rejectedValue;
 		}
-		
+
 		public String getRejectedValue() {
 			return rejectedValue;
 		}
-		
+
 		@Override
 		public String toString() {
 			return this.getClass().getSimpleName() + ": " + getMessage();
@@ -82,32 +87,37 @@ public class Converter {
 	}
 
 	private static Map<Class<?>, String> DEFAULT_DATE_FORMATS = new HashMap<>();
-	
+
 	static {
 		DEFAULT_DATE_FORMATS.put(Date.class, "yyyy-MM-dd");
 		DEFAULT_DATE_FORMATS.put(LocalDate.class, "yyyy-MM-dd");
 		DEFAULT_DATE_FORMATS.put(LocalDateTime.class, "yyyy-MM-dd\'T\'HH:mm:ss");
 		DEFAULT_DATE_FORMATS.put(OffsetDateTime.class, "yyyy-MM-dd\'T\'HH:mm:ss.SSSXXX");
 		DEFAULT_DATE_FORMATS.put(Instant.class, "yyyy-MM-dd\'T\'HH:mm:ss.SSSXXX");
+		DEFAULT_DATE_FORMATS.put(Timestamp.class, "yyyy-MM-dd\'T\'HH:mm:ss.SSS\'Z\'");
 	}
 
 	private static BiFunction<Enum<?>, String, Boolean> enumMatcherCaseSensitive = (enumVal, rawValue) -> enumVal.name().equals(rawValue);
 
-	private static BiFunction<Enum<?>, String, Boolean> enumMatcherCaseInsensitive =
-			(enumVal, rawValue) -> enumVal.name().toUpperCase().equals(rawValue.toUpperCase());
+	private BiFunction<Enum<?>, String, Boolean> enumMatcherCaseInsensitive;
 
 	private String dateFormat;
 	private OnTypeMismatch onTypeMismatch;
-	
+
 	private ConversionService conversionService;
-	
-	private Converter(String dateFormat, OnTypeMismatch onTypeMismatch, ConversionService conversionService) {
+
+	private Converter(String dateFormat, OnTypeMismatch onTypeMismatch, ConversionService conversionService, Locale locale) {
 		this.dateFormat = dateFormat;
 		this.onTypeMismatch = onTypeMismatch;
 		this.conversionService = conversionService;
+		this.enumMatcherCaseInsensitive = (enumVal, rawValue) -> enumVal.name().toUpperCase(locale).equals(rawValue.toUpperCase(locale));
 	}
-	
+
 	public <T> List<T> convert(List<String> values, Class<T> expectedClass) {
+        return convert(values,expectedClass,false);
+    }
+
+	public <T> List<T> convert(List<String> values, Class<T> expectedClass, boolean ignoreCase) {
 		if (expectedClass == String.class) {
 			return (List<T>) values;
 		}
@@ -115,7 +125,7 @@ public class Converter {
 		List<T> result = new ArrayList<>();
 		for (String value : values) {
 			try {
-				result.add(convert(value, expectedClass));
+				result.add(convert(value, expectedClass, ignoreCase));
 			} catch (ValueRejectedException e) {
 				if (rejected == null) {
 					rejected = new ArrayList<>();
@@ -126,7 +136,7 @@ public class Converter {
 		onTypeMismatch.handleRejectedValues(rejected);
 		return result;
 	}
-	
+
 	public <T> T convert(String value, Class<T> expectedClass) {
 		return convert(value, expectedClass, false);
 	}
@@ -139,13 +149,15 @@ public class Converter {
     } else if (expectedClass.isAssignableFrom(Calendar.class)) {
 			return (T) convertToCalendar(value);
 		} else if (isAssignableFromAnyOf(expectedClass, Boolean.class, boolean.class)) {
-			return (T) convertToBoolean(value);
+			return (T) convertToBoolean(value, ignoreCase);
 		} else if (isAssignableFromAnyOf(expectedClass, Integer.class, int.class, Long.class, long.class)) {
 			return (T) convertToLong(value);
 		} else if (isAssignableFromAnyOf(expectedClass, float.class, Float.class)) {
 			return (T) convertToFloat(value);
 		} else if (isAssignableFromAnyOf(expectedClass, double.class, Double.class)) {
 			return (T) convertToDouble(value);
+		} else if (isAssignableFromAnyOf(expectedClass, char.class, Character.class)) {
+			return (T) convertToChar(value, ignoreCase);
 		} else if (expectedClass.isAssignableFrom(LocalDateTime.class)) {
 			return (T) convertToLocalDateTime(value);
 		} else if (expectedClass.isAssignableFrom(LocalDate.class)) {
@@ -158,13 +170,15 @@ public class Converter {
 			return (T) convertToOffsetDateTime(value);
 		} else if (expectedClass.isAssignableFrom(Instant.class)) {
 			return (T) convertToInstant(value);
+		} else if (expectedClass.isAssignableFrom(Timestamp.class)) {
+			return (T) convertToTimestamp(value);
 		} else if (nonNull(conversionService) && conversionService.canConvert(String.class, expectedClass)) {
 			return conversionService.convert(value, expectedClass);
 		}
 
 		return (T) value;
 	}
-	
+
 	private boolean isAssignableFromAnyOf(Class<?> expectedClass, Class<?>... candidates) {
 		for (Class<?> candidate : candidates) {
 			if (expectedClass.isAssignableFrom(candidate)) {
@@ -173,69 +187,78 @@ public class Converter {
 		}
 		return false;
 	}
-	
+
 	private LocalDate convertToLocalDate(String value) {
 		String dateFormat = getDateFormat(LocalDate.class);
 		try {
 			DateTimeFormatter formatter = DateTimeFormatter.ofPattern(dateFormat);
 			return LocalDate.parse(value, formatter);
 		} catch (DateTimeParseException | IllegalArgumentException e) {
-			throw new ValueRejectedException(value, "LocalDate format exception, expected format: " + dateFormat);
+			throw new ValueRejectedException(value, "LocalDate format exception, expected format: " + dateFormat, e);
 		}
 	}
-	
+
 	private LocalDateTime convertToLocalDateTime(String value) {
 		String dateFormat = getDateFormat(LocalDateTime.class);
 		try {
-			DateTimeFormatter formatter = DateTimeFormatter.ofPattern(dateFormat);
+			DateTimeFormatter formatter = formatterWithDefaultTime(dateFormat);
 			return LocalDateTime.parse(value, formatter);
 		} catch (DateTimeParseException | IllegalArgumentException e) {
-			throw new ValueRejectedException(value, "LocalDateTime format exception, expected format:" + dateFormat);
+			throw new ValueRejectedException(value, "LocalDateTime format exception, expected format: " + dateFormat, e);
 		}
 	}
-	
+
 	private Long convertToLong(String value) {
 		try {
 			return Long.valueOf(value);
 		} catch (NumberFormatException e) {
-			throw new ValueRejectedException(value, "number format exception");
+			throw new ValueRejectedException(value, "number format exception", e);
 		}
 	}
-	
+
 	private Double convertToDouble(String value) {
 		try {
 			return Double.valueOf(value);
 		} catch (NumberFormatException e) {
-			throw new ValueRejectedException(value, "number format exception");
+			throw new ValueRejectedException(value, "number format exception", e);
 		}
 	}
-	
+
+	private Character convertToChar(String value, boolean ignoreCase) {
+		if (value.length() == 1) {
+			return ignoreCase ? Character.toUpperCase(value.charAt(0)) : value.charAt(0);
+		} else {
+			throw new ValueRejectedException(value, "value is not a single character exception");
+		}
+	}
+
 	private Float convertToFloat(String value) {
 		try {
 			return Float.valueOf(value);
 		} catch (NumberFormatException e) {
-			throw new ValueRejectedException(value, "number format exception");
+			throw new ValueRejectedException(value, "number format exception", e);
 		}
 	}
-	
+
 	private BigDecimal convertToBigDecimal(String value) {
 		try {
 			return new BigDecimal(value);
 		} catch (NumberFormatException e) {
-			throw new ValueRejectedException(value, "number format exception");
+			throw new ValueRejectedException(value, "number format exception", e);
 		}
 	}
-	
-	private Boolean convertToBoolean(String value) {
-		if ("true".equals(value)) {
+
+	private Boolean convertToBoolean(String value, boolean ignoreCase) {
+        var valueToParse = ignoreCase ? value.toLowerCase() : value;
+		if ("true".equals(valueToParse)) {
 			return true;
-		} else if ("false".equals(value)) {
+		} else if ("false".equals(valueToParse)) {
 			return false;
 		} else {
 			throw new ValueRejectedException(value, "unparseable boolean");
 		}
 	}
-	
+
 	public Date convertToDate(String value) {
 		String dateFormat = getDateFormat(Date.class);
 		try {
@@ -244,7 +267,7 @@ public class Converter {
 			throw new ValueRejectedException(value, "Date format exception, expected format: " + dateFormat);
 		}
 	}
-        
+
     public Calendar convertToCalendar(String value) {
 		String dateFormat = getDateFormat(Date.class);
 		try {
@@ -255,38 +278,39 @@ public class Converter {
 			throw new ValueRejectedException(value, "Date format exception, expected format: " + dateFormat);
 		}
 	}
-	
+
 	public String getDateFormat(Class<?> clazz) {
 		if (dateFormat == null) {
 			return DEFAULT_DATE_FORMATS.get(clazz);
 		}
-		
+
 		return dateFormat;
 	}
-	
+
 	public UUID convertToUUID(String value) {
 		try {
 			return UUID.fromString(value);
 		} catch (IllegalArgumentException e) {
-			throw new ValueRejectedException(value, "unparseable uuid");
+			throw new ValueRejectedException(value, "unparseable uuid", e);
 		}
 	}
-	
+
 	public OffsetDateTime convertToOffsetDateTime(String value) {
 		String dateFormat = getDateFormat(OffsetDateTime.class);
 		try {
-			return OffsetDateTime.parse(value, DateTimeFormatter.ofPattern(dateFormat));
+			DateTimeFormatter formatter = formatterWithDefaultTime(dateFormat);
+			return OffsetDateTime.parse(value, formatter);
 		} catch (DateTimeParseException | IllegalArgumentException e) {
-			throw new ValueRejectedException(value, "OffsetDateTime format exception, expected format: " + dateFormat);
+			throw new ValueRejectedException(value, "OffsetDateTime format exception, expected format: " + dateFormat, e);
 		}
 	}
-	
+
 	public Instant convertToInstant(String value) {
 		String dateFormat = getDateFormat(Instant.class);
 		try {
-			return Instant.from(DateTimeFormatter.ofPattern(dateFormat).parse(value));
+			return Instant.from(formatterWithDefaultTime(dateFormat).parse(value));
 		} catch (DateTimeParseException | IllegalArgumentException e) {
-			throw new ValueRejectedException(value, "Instant format exception, expected format: " + dateFormat);
+			throw new ValueRejectedException(value, "Instant format exception, expected format: " + dateFormat, e);
 		}
 	}
 
@@ -300,6 +324,35 @@ public class Converter {
 		throw new ValueRejectedException(value, "could not find value " + value + " for enum class " + enumClass.getSimpleName());
 	}
 
+	private Timestamp convertToTimestamp(String value) {
+		String dateFormat = getDateFormat(Timestamp.class);
+		try {
+			validateDateFormat(dateFormat, value);
+			SimpleDateFormat simpleDateFormat = new SimpleDateFormat(dateFormat);
+			Date parsedDate = simpleDateFormat.parse(value);
+			return new Timestamp(parsedDate.getTime());
+		} catch (Exception e) {
+			throw new ValueRejectedException(value, "Timestamp format exception, expected format: " + dateFormat, e);
+		}
+	}
+
+	private void validateDateFormat(String expectedDateFormatPattern, String date) throws DateTimeParseException {
+		DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern(expectedDateFormatPattern)
+				.withResolverStyle(ResolverStyle.STRICT);
+		dateFormatter.parse(date);
+	}
+
+	private DateTimeFormatter formatterWithDefaultTime(String dateFormat) {
+		return new DateTimeFormatterBuilder()
+				.appendPattern(dateFormat)
+				.parseDefaulting(ChronoField.HOUR_OF_DAY, 0)
+				.parseDefaulting(ChronoField.MINUTE_OF_HOUR, 0)
+				.parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0)
+				.parseDefaulting(ChronoField.NANO_OF_SECOND, 0)
+				.parseDefaulting(ChronoField.OFFSET_SECONDS, 0)
+				.toFormatter();
+	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
@@ -308,37 +361,31 @@ public class Converter {
 		result = prime * result + ((onTypeMismatch == null) ? 0 : onTypeMismatch.hashCode());
 		return result;
 	}
-	
+
 	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
+	public boolean equals(Object o) {
+		if (this == o) {
 			return true;
-		if (obj == null)
+		}
+		if (o == null || getClass() != o.getClass()) {
 			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		Converter other = (Converter) obj;
-		if (dateFormat == null) {
-			if (other.dateFormat != null)
-				return false;
-		} else if (!dateFormat.equals(other.dateFormat))
-			return false;
-		if (onTypeMismatch != other.onTypeMismatch)
-			return false;
-		return true;
+		}
+		Converter converter = (Converter) o;
+		return Objects.equals(dateFormat, converter.dateFormat) &&
+				onTypeMismatch == converter.onTypeMismatch;
 	}
-	
+
 	@Override
 	public String toString() {
 		return "Converter [dateFormat=" + dateFormat + ", onTypeMismatch=" + onTypeMismatch + "]";
 	}
-	
+
 	public static Converter withDateFormat(String dateFormat, OnTypeMismatch onTypeMismatch, ConversionService conversionService) {
-		return new Converter(dateFormat, onTypeMismatch, conversionService);
+		return new Converter(dateFormat, onTypeMismatch, conversionService, Locale.getDefault());
 	}
-	
-	public static Converter withTypeMismatchBehaviour(OnTypeMismatch onTypeMismatch, ConversionService conversionService) {
-		return new Converter(null, onTypeMismatch, conversionService);
+
+	public static Converter withTypeMismatchBehaviour(OnTypeMismatch onTypeMismatch, ConversionService conversionService, Locale locale) {
+		return new Converter(null, onTypeMismatch, conversionService, locale);
 	}
-	
+
 }
