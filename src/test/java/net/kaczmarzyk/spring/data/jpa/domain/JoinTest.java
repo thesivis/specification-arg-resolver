@@ -27,7 +27,7 @@ import org.springframework.data.domain.Sort;
 
 import java.util.List;
 
-import static javax.persistence.criteria.JoinType.LEFT;
+import static jakarta.persistence.criteria.JoinType.LEFT;
 import static net.kaczmarzyk.spring.data.jpa.CustomerBuilder.customer;
 import static net.kaczmarzyk.spring.data.jpa.ItemTagBuilder.itemTag;
 import static net.kaczmarzyk.spring.data.jpa.OrderBuilder.order;

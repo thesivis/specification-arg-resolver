@@ -15,19 +15,19 @@
  */
 package net.kaczmarzyk.utils.interceptor;
 
-import org.hibernate.EmptyInterceptor;
+import org.hibernate.resource.jdbc.spi.StatementInspector;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class HibernateStatementInterceptor extends EmptyInterceptor {
+public class HibernateStatementInterceptor implements StatementInspector {
 
 	private static List<String> statements = new CopyOnWriteArrayList<>();
 
 	@Override
-	public String onPrepareStatement(String sql) {
+	public String inspect(String sql) {
 		statements.add(sql);
-		return super.onPrepareStatement(sql);
+		return sql;
 	}
 
 	public static List<String> getInterceptedStatements() {

@@ -15,7 +15,7 @@
  */
 package net.kaczmarzyk.spring.data.jpa.web.annotation;
 
-import javax.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.JoinType;
 import java.lang.annotation.*;
 
 

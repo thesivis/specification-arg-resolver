@@ -19,9 +19,9 @@ import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.web.context.request.NativeWebRequest;
 
-import javax.persistence.criteria.Fetch;
-import javax.persistence.criteria.Join;
-import javax.persistence.criteria.Root;
+import jakarta.persistence.criteria.Fetch;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Root;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -33,28 +33,33 @@ import java.util.function.Function;
 public class WebRequestQueryContext implements QueryContext {
 
 	private static final String ATTRIBUTE_KEY = WebRequestQueryContext.class.getName() + ".ATTRIBUTE_KEY";
-	private static final String JOIN_FETCH_ATTRIBUTE_KEY = WebRequestQueryContext.class.getName() + ".ATTRIBUTE_KEY_JOIN_FETCH";
-        private static final String ROOT_CACHE_ATTRIBUTE_KEY = WebRequestQueryContext.class.getName() + ".ATTRIBUTE_KEY_ROOT_CACHE";
+	private static final String JOIN_FETCH_ATTRIBUTE_KEY = WebRequestQueryContext.class.getName()
+			+ ".ATTRIBUTE_KEY_JOIN_FETCH";
+	private static final String ROOT_CACHE_ATTRIBUTE_KEY = WebRequestQueryContext.class.getName()
+			+ ".ATTRIBUTE_KEY_ROOT_CACHE";
 
 	private HashMap<String, Function<Root<?>, Join<?, ?>>> contextMap;
 	private HashMap<String, Fetch<?, ?>> evaluatedJoinFetch;
 
-	private Map<Pair<String, Root>, javax.persistence.criteria.Join<?, ?>> rootCache;
+	private Map<Pair<String, Root>, jakarta.persistence.criteria.Join<?, ?>> rootCache;
 
 	public WebRequestQueryContext(NativeWebRequest request) {
-		this.contextMap = (HashMap<String, Function<Root<?>, Join<?, ?>>>) request.getAttribute(ATTRIBUTE_KEY, NativeWebRequest.SCOPE_REQUEST);
+		this.contextMap = (HashMap<String, Function<Root<?>, Join<?, ?>>>) request.getAttribute(ATTRIBUTE_KEY,
+				NativeWebRequest.SCOPE_REQUEST);
 		if (this.contextMap == null) {
 			this.contextMap = new HashMap<>();
 			request.setAttribute(ATTRIBUTE_KEY, contextMap, NativeWebRequest.SCOPE_REQUEST);
 		}
-		this.evaluatedJoinFetch = (HashMap<String, Fetch<?, ?>>) request.getAttribute(JOIN_FETCH_ATTRIBUTE_KEY, NativeWebRequest.SCOPE_REQUEST);
+		this.evaluatedJoinFetch = (HashMap<String, Fetch<?, ?>>) request.getAttribute(JOIN_FETCH_ATTRIBUTE_KEY,
+				NativeWebRequest.SCOPE_REQUEST);
 
 		if (this.evaluatedJoinFetch == null) {
 			this.evaluatedJoinFetch = new HashMap<>();
 			request.setAttribute(JOIN_FETCH_ATTRIBUTE_KEY, evaluatedJoinFetch, NativeWebRequest.SCOPE_REQUEST);
 		}
-                
-                this.rootCache = (Map<Pair<String, Root>, javax.persistence.criteria.Join<?, ?>>) request.getAttribute(ROOT_CACHE_ATTRIBUTE_KEY, NativeWebRequest.SCOPE_REQUEST);
+
+		this.rootCache = (Map<Pair<String, Root>, jakarta.persistence.criteria.Join<?, ?>>) request
+				.getAttribute(ROOT_CACHE_ATTRIBUTE_KEY, NativeWebRequest.SCOPE_REQUEST);
 
 		if (this.rootCache == null) {
 			this.rootCache = new HashMap<>();
@@ -62,25 +67,24 @@ public class WebRequestQueryContext implements QueryContext {
 		}
 	}
 
-        @Override
-        public boolean existsJoin(String key, Root<?> root) {
-            Function<Root<?>, Join<?, ?>> value = contextMap.get(key);
-            return value != null;
-        }
-        
-        
+	@Override
+	public boolean existsJoin(String key, Root<?> root) {
+		Function<Root<?>, Join<?, ?>> value = contextMap.get(key);
+		return value != null;
+	}
 
 	@Override
 	public Join<?, ?> getEvaluated(String key, Root<?> root) {
 		Function<Root<?>, Join<?, ?>> value = contextMap.get(key);
 
 		if (value == null) {
-                        Optional<? extends Join<?, ?>> opJoin = root.getJoins().stream().filter(p -> p.getAlias() != null && p.getAlias().equals(key)).findFirst();
-                        if(opJoin.isPresent()){
-                            Join<?, ?> join = opJoin.get();
-                            putLazyVal(key, (r) -> join);
-                            return join;
-                        }
+			Optional<? extends Join<?, ?>> opJoin = root.getJoins().stream()
+					.filter(p -> p.getAlias() != null && p.getAlias().equals(key)).findFirst();
+			if (opJoin.isPresent()) {
+				Join<?, ?> join = opJoin.get();
+				putLazyVal(key, (r) -> join);
+				return join;
+			}
 			return null;
 		}
 
@@ -88,6 +92,7 @@ public class WebRequestQueryContext implements QueryContext {
 
 		if (!rootCache.containsKey(rootKey)) {
 			Join<?, ?> evaluated = value.apply(root);
+			root.alias(key);
 			rootCache.put(rootKey, evaluated);
 		}
 		return rootCache.get(rootKey);

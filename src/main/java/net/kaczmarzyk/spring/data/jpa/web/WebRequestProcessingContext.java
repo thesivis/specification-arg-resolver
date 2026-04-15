@@ -26,7 +26,7 @@ import org.springframework.web.context.request.NativeWebRequest;
 import net.kaczmarzyk.spring.data.jpa.utils.PathVariableResolver;
 import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Provides information about Controller/method and WebRequest being processed.

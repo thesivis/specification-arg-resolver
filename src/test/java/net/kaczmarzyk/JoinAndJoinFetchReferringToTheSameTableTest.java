@@ -38,7 +38,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.util.NestedServletException;
 
 import static java.util.stream.Collectors.toList;
-import static javax.persistence.criteria.JoinType.LEFT;
+import static jakarta.persistence.criteria.JoinType.LEFT;
 import static net.kaczmarzyk.spring.data.jpa.CustomerBuilder.customer;
 import static net.kaczmarzyk.spring.data.jpa.ItemTagBuilder.itemTag;
 import static net.kaczmarzyk.spring.data.jpa.OrderBuilder.order;

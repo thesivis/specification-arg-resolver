@@ -27,7 +27,7 @@ import org.junit.Test;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.domain.Sort;
 
-import javax.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.JoinType;
 import java.util.List;
 
 import static net.kaczmarzyk.spring.data.jpa.CustomerBuilder.customer;

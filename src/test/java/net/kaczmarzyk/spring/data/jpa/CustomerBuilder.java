@@ -15,7 +15,7 @@
  */
 package net.kaczmarzyk.spring.data.jpa;
 
-import javax.persistence.EntityManager;
+import jakarta.persistence.EntityManager;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
